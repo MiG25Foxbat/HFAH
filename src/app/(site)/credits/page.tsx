@@ -34,7 +34,7 @@ export default function CreditsPage() {
         </p>
         <p>
           Бесплатные модели с лицензией CC0 мы искали: Poly Haven, Kenney, Quaternius, ambientCG. Подходящих по конструкции и стилю не нашлось, поэтому ничего оттуда не использовано и ссылаться не
-          на что. Записи поиска лежат в исходниках проекта, в папке <code className="rounded bg-surface-2 px-1.5 py-0.5 text-[0.875rem]">blender-work</code>.
+          на что. Записи поиска лежат в исходниках проекта: <code className="rounded bg-surface-2 px-1.5 py-0.5 text-[0.875rem]">assets-src/blender/sources/_search-notes/</code>.
         </p>
         <p>
           Файл <code className="rounded bg-surface-2 px-1.5 py-0.5 text-[0.875rem]">.blend</code> и скрипты сборки передаются владельцу проекта вместе с сайтом. Модели можно использовать, менять и передавать дальше вместе
