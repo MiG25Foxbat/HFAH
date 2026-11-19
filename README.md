@@ -53,7 +53,10 @@ src/lib/              ЧИСТЫЙ код, работает и в браузер
 src/lib/server/       только сервер (`import "server-only"`)
   db, settings, services, orders, bonus, photos, session, auth, rate-limit, tokens, password, http
 src/app/api/          публичный API
-src/components/       ThemeSwitch
+src/app/(site)/       публичный сайт: каркас (шапка, подвал, корзина), главная, /checkout, /o/[токен]
+src/components/       site (шапка, подвал), shop (каталог, лист настройки работы, корзина, расчёт), checkout (форма, фото),
+                      order (страница заявки с опросом), ui (лист, тосты, поля), ThemeSwitch
+e2e/                  Python Playwright: test_client_flow.py (клиентский путь), скриншоты в e2e/screenshots/
 tests/                vitest
 ```
 

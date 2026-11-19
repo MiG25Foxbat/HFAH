@@ -1,0 +1,73 @@
+/* Клиентская часть: то, что не выразить классами Tailwind. Токены цветов — в globals.css. */
+:root {
+  --header-h: 3.5rem;
+}
+
+/* Модальный лист рисует свою подложку (с анимацией), системная не нужна */
+dialog::backdrop {
+  background: transparent;
+}
+
+/* Пока открыт лист, страница под ним не прокручивается */
+html:has(dialog[open]) {
+  overflow: hidden;
+}
+
+/* Страничный тост скрыт, пока открыт лист: тост внутри листа нажимаем, страничный — нет (всё вне <dialog> недоступно) */
+body:has(dialog[open]) [data-toast-host="page"] {
+  display: none;
+}
+
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Ссылка «К содержимому» для клавиатуры */
+.skip-link {
+  position: absolute;
+  left: 1rem;
+  top: 0.5rem;
+  z-index: 100;
+  transform: translateY(-200%);
+  border-radius: var(--radius-field);
+  background: var(--accent);
+  color: var(--accent-ink);
+  padding: 0.75rem 1rem;
+  font-weight: 500;
+}
+.skip-link:focus {
+  transform: none;
+}
+
+/* У строки поиска без собственного «крестика» браузера: очищать можно выделением и удалением */
+input[type="search"]::-webkit-search-cancel-button {
+  appearance: none;
+}
+
+/* Прокрутка к элементу в фокусе не прячет его под липкой шапкой и панелью категорий */
+html {
+  scroll-padding-top: calc(var(--header-h) + 4.5rem);
+  scroll-padding-bottom: 6rem;
+  -webkit-tap-highlight-color: color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+/* Нет задержки двойного касания на кнопках и полях */
+a,
+button,
+input,
+label,
+select,
+summary,
+textarea {
+  touch-action: manipulation;
+}
+
+/* Заголовки без висящих слов */
+h1,
+h2,
+h3 {
+  text-wrap: balance;
+}

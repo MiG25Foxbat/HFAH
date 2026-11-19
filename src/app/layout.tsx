@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Golos_Text, Unbounded } from "next/font/google";
 import { THEME_INIT_SCRIPT } from "@/lib/theme";
 import "./globals.css";
+import "./client.css";
 
 // UI — Golos Text; Unbounded 500 только для словесного знака и H1 главной (docs/DESIGN.md)
 const golos = Golos_Text({
@@ -32,6 +33,8 @@ export const viewport: Viewport = {
   ],
 };
 
+// Корневой макет — только <html>, шрифты, тема и стили. Каркас сайта (шапка, подвал, корзина) — в src/app/(site)/layout.tsx,
+// у кабинета (/admin) свой каркас. Публичные страницы лежат в группе (site).
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     // suppressHydrationWarning: инлайн-скрипт ставит data-theme до гидратации
