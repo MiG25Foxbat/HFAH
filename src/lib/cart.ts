@@ -17,7 +17,7 @@ import {
 import { uuid4 } from "./uuid";
 
 /** Версия в ключе: при несовместимом изменении формата берём новый ключ, старые данные просто не читаются. */
-export const CART_KEY = "ladno-cart-v1";
+export const CART_KEY = "zaprosto-cart-v1";
 /** Как в схеме заявки: не больше 30 позиций. */
 export const MAX_LINES = 30;
 const UNITS: readonly Unit[] = ["pcs", "m", "m2", "hour"];

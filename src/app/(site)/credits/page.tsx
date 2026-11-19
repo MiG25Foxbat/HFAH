@@ -52,7 +52,7 @@ export default function CreditsPage() {
             <a href="https://github.com/googlefonts/golos-text" className={linkClass}>Golos Text</a> — весь интерфейс. © 2019 The Golos Text Project Authors, лицензия SIL Open Font License 1.1.
           </li>
           <li>
-            <a href="https://github.com/googlefonts/unbounded" className={linkClass}>Unbounded</a> — знак «ладно» и заголовок главной. © 2022 The Unbounded Project Authors, лицензия SIL Open Font License 1.1.
+            <a href="https://github.com/googlefonts/unbounded" className={linkClass}>Unbounded</a> — знак «запросто» и заголовок главной. © 2022 The Unbounded Project Authors, лицензия SIL Open Font License 1.1.
           </li>
         </ul>
         <p>

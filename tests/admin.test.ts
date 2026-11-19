@@ -64,11 +64,11 @@ describe("проверка форм кабинета (без БД)", () => {
       fields: { hourRate: expect.any(String), minOrder: expect.any(String), complexPct: expect.any(String) },
     });
     const company = {
-      name: "Ладно", city: "Москва", territory: "", accent: "", phone: "8 (916) 123-45-67", telegram: "t.me/ladno_master", whatsapp: "", email: "",
+      name: "Запросто", city: "Москва", territory: "", accent: "", phone: "8 (916) 123-45-67", telegram: "t.me/zaprosto_master", whatsapp: "", email: "",
       excluded: [{ title: "Газ", hint: "", keywords: "Газов, котёл, газов" }],
     };
     const ok = parseCompanyForm(company);
-    expect(ok.ok && ok.data.contacts).toEqual({ phone: "+79161234567", telegram: "@ladno_master", whatsapp: "", email: "" });
+    expect(ok.ok && ok.data.contacts).toEqual({ phone: "+79161234567", telegram: "@zaprosto_master", whatsapp: "", email: "" });
     expect(ok.ok && ok.data.excluded[0].keywords).toEqual(["газов", "котел"]);
     expect(parseCompanyForm({ ...company, phone: "12345", email: "не-почта" })).toMatchObject({ ok: false, fields: { phone: expect.any(String), email: expect.any(String) } });
     expect(parseCompanyForm({ ...company, excluded: [{ title: "", hint: "", keywords: "а" }] })).toMatchObject({ ok: false, fields: { "excluded.0.title": expect.any(String), "excluded.0.keywords": expect.any(String) } });

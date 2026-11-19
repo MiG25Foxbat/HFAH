@@ -1,5 +1,5 @@
 """
-E2E клиентского пути «Ладно»: выбор работ, корзина, оформление, повтор без дубля, страница заявки.
+E2E клиентского пути «Запросто»: выбор работ, корзина, оформление, повтор без дубля, страница заявки.
 Запуск (сервер уже работает):  BASE_URL=http://127.0.0.1:3101 python e2e/test_client_flow.py
 Нужна база, на которую смотрит сервер: DATABASE_URL (по умолчанию hfah_client). Скриншоты — e2e/screenshots/.
 """
@@ -295,7 +295,7 @@ def d2_stale_cart_dropped_with_notice(browser):
     page = new_page(browser)
     fresh_home(page)
     page.evaluate(
-        """() => localStorage.setItem('ladno-cart-v1', JSON.stringify({v:1, lines:[
+        """() => localStorage.setItem('zaprosto-cart-v1', JSON.stringify({v:1, lines:[
           {serviceId:'furn-shelf', title:'Навеска полки', unit:'pcs', qty:2, complex:false, dismantle:false, manual:false},
           {serviceId:'gone-service', title:'Старая работа', unit:'pcs', qty:1, complex:false, dismantle:false, manual:false}]}))"""
     )
@@ -329,11 +329,11 @@ def e_f_checkout_draft_photo_submit(browser):
     page.wait_for_selector("[data-photo-status=done]", timeout=30000)
     # время недоступно без даты — проверим отдельно ниже; сейчас перезагрузка посреди формы
     page.wait_for_timeout(500)
-    saved = page.evaluate("() => localStorage.getItem('ladno-draft-v1')")
+    saved = page.evaluate("() => localStorage.getItem('zaprosto-draft-v1')")
     assert saved and name in saved, f"черновик не записан до перезагрузки: {str(saved)[:200]}"
     page.reload(wait_until="networkidle")
     restored = page.get_by_label("Имя", exact=True).input_value()
-    after = page.evaluate("() => localStorage.getItem('ladno-draft-v1')")
+    after = page.evaluate("() => localStorage.getItem('zaprosto-draft-v1')")
     assert restored == name, f"форма не восстановилась: {restored!r}; в хранилище: {str(after)[:200]}"
     assert page.get_by_label("Адрес", exact=True).input_value().startswith("ул. Вымышленная")
     assert page.get_by_label("Куплю сам").is_checked()
@@ -375,7 +375,7 @@ def e_f_checkout_draft_photo_submit(browser):
     assert m and money(m.group(1)) == expected, (m and m.group(1), expected)
     assert WISH_TEXT in body and "12:00–15:00" in body and "пожелание" in body
     # корзина и черновик очищены
-    assert page.evaluate("() => [localStorage.getItem('ladno-cart-v1'), localStorage.getItem('ladno-draft-v1')]") == [None, None]
+    assert page.evaluate("() => [localStorage.getItem('zaprosto-cart-v1'), localStorage.getItem('zaprosto-draft-v1')]") == [None, None]
     # в базе ровно одна, цена посчитана сервером так же
     rows = db(f"select known_total, status from orders where customer_name = '{name}'")
     assert len(rows) == 1 and rows[0]["known_total"] == expected and rows[0]["status"] == "new"

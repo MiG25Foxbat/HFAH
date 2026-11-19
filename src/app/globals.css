@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 /*
- * Токены «Ладно» (docs/DESIGN.md). Светлая тема — по умолчанию.
+ * Токены «Запросто» (docs/DESIGN.md). Светлая тема — по умолчанию.
  * Тёмная включается явным выбором (html[data-theme="dark"]) или системной (prefers-color-scheme),
  * если явно не выбрана светлая. Класс Tailwind → токен: bg-bg, bg-surface, bg-surface-2, text-ink, text-muted,
  * border-line, bg-accent + text-accent-ink, text-ply, text-danger, text-ok, bg-cat-furniture и т. д.

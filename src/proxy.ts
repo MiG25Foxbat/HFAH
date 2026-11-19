@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 // Имя cookie сеанса владельца — как SESSION_COOKIE в src/lib/server/session.ts (там `server-only`, поэтому здесь строка).
-const SESSION_COOKIE = "ladno_sid";
+const SESSION_COOKIE = "zaprosto_sid";
 
 /**
  * Анонимный заход в /admin/* получает настоящий 307 на /admin/login: без прокси страница уже отвечает 200 и редиректит внутри потока.

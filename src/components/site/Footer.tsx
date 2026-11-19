@@ -15,7 +15,7 @@ export function Footer() {
     <footer className="mt-12 border-t border-line">
       <div className="mx-auto grid max-w-[1200px] gap-6 px-4 py-8 min-[900px]:grid-cols-[1fr_auto]">
         <div className="grid content-start gap-2">
-          <p translate="no" className="font-display text-xl leading-none">ладно</p>
+          <p translate="no" className="font-display text-xl leading-none">запросто</p>
           <p className="max-w-prose text-[0.9375rem] leading-snug text-muted">Мастер на час. Цена — только за работу: материалы и запчасти оплачиваются отдельно.</p>
           <Suspense fallback={null}>
             <FooterContacts />

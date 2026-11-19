@@ -6,7 +6,7 @@ import { CATEGORIES, type CategoryId } from "@/lib/catalog";
 import { getShopData } from "@/lib/shop-data";
 
 export const metadata: Metadata = {
-  title: { absolute: "Ладно — мастер на час: цены на работы" },
+  title: { absolute: "Запросто — мастер на час: цены на работы" },
   description: "Сборка мебели, сантехника, электрика, мелкий ремонт. Цена за работу видна сразу, материалы и запчасти оплачиваются отдельно.",
   alternates: { canonical: "/" },
 };

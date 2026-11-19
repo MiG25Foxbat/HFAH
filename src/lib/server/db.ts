@@ -3,7 +3,7 @@ import postgres from "postgres";
 
 type Sql = ReturnType<typeof postgres>;
 
-const g = globalThis as unknown as { __ladnoSql?: Sql };
+const g = globalThis as unknown as { __zaprostoSql?: Sql };
 
 function connect(): Sql {
   const url = process.env.DATABASE_URL;
@@ -18,7 +18,7 @@ function connect(): Sql {
   });
 }
 
-const client = () => (g.__ladnoSql ??= connect());
+const client = () => (g.__zaprostoSql ??= connect());
 
 /**
  * Единственный клиент БД (переживает HMR). Подключение создаётся при первом запросе, поэтому импорт модуля

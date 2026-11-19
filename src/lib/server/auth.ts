@@ -46,7 +46,7 @@ export type AuthResult = { ok: true } | { ok: false; error: string };
 
 /**
  * Вход: 10 попыток за 15 минут с одного IP и 50 за 15 минут всего (страховка, если IP подделан).
- * При успехе выставляет cookie `ladno_sid`.
+ * При успехе выставляет cookie `zaprosto_sid`.
  */
 export async function login(password: string): Promise<AuthResult> {
   const global = await rateLimit("login:all", 50, 900);

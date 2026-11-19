@@ -21,18 +21,18 @@ const unbounded = Unbounded({
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.APP_ORIGIN ?? "http://localhost:3000"),
-  title: { default: "Ладно — мастер на час", template: "%s — Ладно" },
+  title: { default: "Запросто — мастер на час", template: "%s — Запросто" },
   description: "Мастер на час: сборка мебели, сантехника, электрика, мелкий ремонт. Цены за работу видны сразу.",
   openGraph: {
     locale: "ru_RU",
     type: "website",
-    siteName: "Ладно",
-    images: [{ url: "/og.png", width: 1200, height: 630, alt: "Ладно — мастер на час. Ящик с инструментами с улыбкой на подиуме-рулетке" }],
+    siteName: "Запросто",
+    images: [{ url: "/og.png", width: 1200, height: 630, alt: "Запросто — мастер на час. Ящик с инструментами с улыбкой на подиуме-рулетке" }],
   },
   twitter: { card: "summary_large_image" },
   // значки собирает scripts/make-icons.mjs; /favicon.ico подхватывается из src/app/favicon.ico
   icons: { icon: [{ url: "/icons/icon.svg", type: "image/svg+xml" }], apple: [{ url: "/icons/apple-touch-icon.png", sizes: "180x180" }] },
-  appleWebApp: { capable: true, title: "Ладно" },
+  appleWebApp: { capable: true, title: "Запросто" },
 };
 
 export const viewport: Viewport = {

@@ -6,7 +6,7 @@
 import { ACCESS_FIELDS, orderSchema, zodFields, type Materials, type OrderInputRaw } from "./order-schema";
 import type { CartItem } from "./cart";
 
-export const DRAFT_KEY = "ladno-draft-v1";
+export const DRAFT_KEY = "zaprosto-draft-v1";
 /** Непривязанные фото сервер удаляет через 24 ч; помечаем устаревшие чуть раньше. */
 export const PHOTO_TTL_MS = 23 * 3600_000;
 export const MAX_PHOTOS = 3;

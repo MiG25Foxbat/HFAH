@@ -1,4 +1,4 @@
-// Значок «Ладно»: синий квадрат, белая «л» и кольцо делений, как у подиума-рулетки на главной.
+// Значок «Запросто»: синий квадрат, белая «з» и кольцо делений, как у подиума-рулетки на главной.
 // Запуск: node scripts/make-icons.mjs  (нужен только sharp). Пишет public/icons/* и src/app/favicon.ico.
 // Фирменные цвета — docs/DESIGN.md (светлая тема): --accent #2E57D1, --ply #D4B07C.
 import { mkdir, writeFile } from "node:fs/promises";
@@ -26,8 +26,12 @@ function ticks() {
   return `<g stroke="${PLY}" stroke-width="6" stroke-linecap="round">${lines.join("")}</g>`;
 }
 
-// Строчная «л»: левая нога наклонная, правая прямая. Нарисована линией, поэтому не зависит от шрифтов.
-const LETTER = `<path d="M170 356 L262 158 H340 V356" fill="none" stroke="#fff" stroke-width="58" stroke-linecap="round" stroke-linejoin="round"/>`;
+// Строчная «з» шрифта Unbounded 500 (знак на сайте набран им же), контур вынут из scripts/fonts/Unbounded[wght].ttf,
+// поэтому значок не зависит от шрифтов в системе. Система координат глифа: 1000 на em, ось Y вверх; границы x 23…656, y −15…584.
+const GLYPH =
+  "M344 -15Q249 -15 178 10Q107 34 67 81Q27 127 23 190H185Q192 148 233 126Q274 104 344 104Q411 104 449 121Q486 139 486 176Q486 206 455 221Q423 235 354 235H248V335H351Q413 335 442 353Q472 371 472 398Q472 431 438 448Q403 465 345 465Q281 465 242 445Q203 425 196 385H35Q39 440 77 485Q115 530 184 557Q254 584 352 584Q439 584 504 563Q569 542 605 505Q641 468 641 420Q641 382 617 350Q594 318 543 299Q491 280 408 280V297Q527 302 592 268Q656 234 656 164Q656 113 620 72Q583 31 513 8Q443 -15 344 -15Z";
+// Центр глифа в его координатах: x (23 + 656) / 2, y (−15 + 584) / 2.
+const letter = (k) => `<path transform="translate(256 256) scale(${k} ${-k}) translate(-340 -284)" d="${GLYPH}" fill="#fff"/>`;
 
 /**
  * kind: "any" — скруглённый квадрат с прозрачными углами; "full" — квадрат на весь холст (maskable и apple-touch:
@@ -38,7 +42,7 @@ function svg(kind) {
   const full = kind === "full" || kind === "maskable";
   const bg = full ? `<rect width="512" height="512" fill="${ACCENT}"/>` : `<rect width="512" height="512" rx="112" fill="${ACCENT}"/>`;
   const scale = kind === "maskable" ? 0.78 : 1;
-  const inner = `${kind === "small" ? "" : ticks()}${LETTER}`;
+  const inner = kind === "small" ? letter(0.52) : `${ticks()}${letter(0.42)}`;
   const g = scale === 1 ? inner : `<g transform="translate(256 256) scale(${scale}) translate(-256 -256)">${inner}</g>`;
   return `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">${bg}${g}</svg>`;
 }

@@ -126,7 +126,7 @@ def run():
             check("no-store" in r.headers.get("cache-control", ""), f"307 для {path} не кешируется", r.headers.get("cache-control", ""))
         r = api.get(f"{BASE}/admin/login", max_redirects=0)
         check(r.status == 200, "страница входа открыта без cookie (200)", str(r.status))
-        r = api.get(f"{BASE}/admin", max_redirects=0, headers={"Cookie": "ladno_sid=not-a-real-session"})
+        r = api.get(f"{BASE}/admin", max_redirects=0, headers={"Cookie": "zaprosto_sid=not-a-real-session"})
         check(r.status != 307, "с любой cookie прокси пропускает: подлинность решает requireOwner()", str(r.status))
         page = anon.new_page()
         for path in ["/admin", "/admin/orders/x", f"/admin/orders/{uuid.uuid4()}", "/admin/tariffs", "/admin/company", "/admin/game", "/admin/characters", "/admin/access"]:
@@ -158,8 +158,8 @@ def run():
         login(op)
         op.get_by_role("heading", name="Заявки", level=1).wait_for(timeout=15000)
         check(True, "вход: открыт список «Заявки»")
-        check("ladno_sid" in [c["name"] for c in owner.cookies()], "cookie сеанса выставлена")
-        cookie = [c for c in owner.cookies() if c["name"] == "ladno_sid"][0]
+        check("zaprosto_sid" in [c["name"] for c in owner.cookies()], "cookie сеанса выставлена")
+        cookie = [c for c in owner.cookies() if c["name"] == "zaprosto_sid"][0]
         check(cookie["httpOnly"] and cookie["sameSite"] == "Lax", "cookie httpOnly, SameSite=Lax")
         owner_state = owner.storage_state()
         op.goto(f"{BASE}/admin/login")
@@ -353,14 +353,14 @@ def run():
         check(op.get_by_text("российский номер").first.is_visible() and op.get_by_text("проверьте адрес", exact=False).first.is_visible(), "компания: неверные телефон и почта — ошибки у полей")
         op.get_by_label("Телефон", exact=True).fill("")
         op.get_by_label("Почта", exact=True).fill("")
-        op.get_by_label("Telegram").fill("t.me/ladno_e2e_test")
+        op.get_by_label("Telegram").fill("t.me/zaprosto_e2e_test")
         op.get_by_role("button", name="Добавить в список").click()
         op.get_by_label("Название").last.fill("Тестовая работа E2E")
         op.get_by_label("Слова для поиска").last.fill("е2етест")
         op.get_by_role("button", name="Сохранить", exact=True).click()
         op.get_by_text("Сохранено.").first.wait_for(timeout=10000)
         op.reload()
-        check(op.get_by_label("Telegram").input_value() == "@ladno_e2e_test", "компания: Telegram приведён к @имени и сохранён")
+        check(op.get_by_label("Telegram").input_value() == "@zaprosto_e2e_test", "компания: Telegram приведён к @имени и сохранён")
         check(op.get_by_label("Название").last.input_value() == "Тестовая работа E2E", "компания: добавленная работа «не берём» сохранена")
         shot(op, "company-desktop")
         # вернуть как было: убрать работу, вернуть Telegram

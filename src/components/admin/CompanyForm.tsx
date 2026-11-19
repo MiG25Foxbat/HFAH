@@ -80,7 +80,7 @@ export function CompanyForm({ initial }: { initial: Company }) {
         <div className="grid gap-5 min-[700px]:grid-cols-2">
           <TextField label="Телефон" name="phone" type="tel" inputMode="tel" spellCheck={false} autoComplete="off" placeholder="+7 916 123-45-67" {...field("phone")} />
           <TextField label="WhatsApp" name="whatsapp" type="tel" inputMode="tel" spellCheck={false} autoComplete="off" placeholder="+7 916 123-45-67" hint="Номер, на который можно написать." {...field("whatsapp")} />
-          <TextField label="Telegram" name="telegram" spellCheck={false} autoComplete="off" placeholder="@ladno_master" hint="Имя пользователя или ссылка t.me." {...field("telegram")} />
+          <TextField label="Telegram" name="telegram" spellCheck={false} autoComplete="off" placeholder="@zaprosto_master" hint="Имя пользователя или ссылка t.me." {...field("telegram")} />
           <TextField label="Почта" name="email" type="email" inputMode="email" spellCheck={false} autoComplete="off" placeholder="master@example.ru" {...field("email")} />
         </div>
       </Panel>

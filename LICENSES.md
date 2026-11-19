@@ -22,7 +22,7 @@
 | Шрифт | Где используется | Лицензия | Текст лицензии |
 |---|---|---|---|
 | Golos Text, © 2019 The Golos Text Project Authors | весь интерфейс | SIL Open Font License 1.1 | `scripts/fonts/GolosText-OFL.txt` |
-| Unbounded, © 2022 The Unbounded Project Authors | знак «ладно» и заголовок главной | SIL Open Font License 1.1 | `scripts/fonts/Unbounded-OFL.txt` |
+| Unbounded, © 2022 The Unbounded Project Authors | знак «запросто» и заголовок главной | SIL Open Font License 1.1 | `scripts/fonts/Unbounded-OFL.txt` |
 
 Шрифты подключены через `next/font/google`: при сборке они скачиваются и затем отдаются с самого сайта (при открытии страниц запросов к серверам Google нет). Те же файлы лежат в `scripts/fonts/`: скрипт `make-og.mjs` рисует по ним текст на картинке для соцсетей. OFL разрешает использовать, менять и распространять шрифты, в том числе в коммерческих проектах, при условии, что сам шрифт не продаётся отдельно и сохраняется текст лицензии.
 

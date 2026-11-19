@@ -1,8 +1,8 @@
-// Ладно: service worker. Только офлайн-экран и быстрые статические файлы, ничего приватного не кешируется.
+// Запросто: service worker. Только офлайн-экран и быстрые статические файлы, ничего приватного не кешируется.
 // Изменили логику или файлы офлайн-страницы — поднимите VERSION: старые кеши удалятся при активации.
-const VERSION = "v1";
-const SHELL = `ladno-shell-${VERSION}`; // /offline, её стили и скрипты, значки: не обрезается
-const ASSETS = `ladno-assets-${VERSION}`; // всё остальное статическое, обрезается до MAX_ASSETS
+const VERSION = "v2";
+const SHELL = `zaprosto-shell-${VERSION}`; // /offline, её стили и скрипты, значки: не обрезается
+const ASSETS = `zaprosto-assets-${VERSION}`; // всё остальное статическое, обрезается до MAX_ASSETS
 const MAX_ASSETS = 150;
 const BRAND = ["/icons/icon.svg", "/icons/icon-192.png", "/icons/icon-512.png"];
 
@@ -18,8 +18,8 @@ self.addEventListener("install", (event) => {
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches
-      .keys()
-      .then((keys) => Promise.all(keys.filter((k) => k.startsWith("ladno-") && k !== SHELL && k !== ASSETS).map((k) => caches.delete(k))))
+      .keys() // ladno- — кеши прежнего названия
+      .then((keys) => Promise.all(keys.filter((k) => /^(ladno|zaprosto)-/.test(k) && k !== SHELL && k !== ASSETS).map((k) => caches.delete(k))))
       .then(() => self.clients.claim()),
   );
 });

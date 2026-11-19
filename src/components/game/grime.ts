@@ -374,7 +374,7 @@ function attach(mat: THREE.MeshStandardMaterial, texture: THREE.Texture, fade: {
       .replace("#include <roughnessmap_fragment>", "#include <roughnessmap_fragment>\nroughnessFactor = mix(roughnessFactor, 0.92, grimeM);")
       .replace("#include <metalnessmap_fragment>", "#include <metalnessmap_fragment>\nmetalnessFactor *= 1.0 - grimeM;");
   };
-  mat.customProgramCacheKey = () => "ladno-grime";
+  mat.customProgramCacheKey = () => "zaprosto-grime";
   mat.needsUpdate = true;
 }
 

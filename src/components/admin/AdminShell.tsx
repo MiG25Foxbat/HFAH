@@ -9,7 +9,7 @@ import { button } from "./ui";
 function Wordmark() {
   return (
     <Link href="/admin" className="inline-flex min-h-11 items-baseline gap-2.5 rounded-field">
-      <span translate="no" className="font-display text-2xl leading-none">ладно</span>
+      <span translate="no" className="font-display text-2xl leading-none">запросто</span>
       <span className="text-[0.8125rem] text-muted">кабинет</span>
     </Link>
   );
@@ -58,7 +58,7 @@ export function AdminShell({ newCount, children }: { newCount: number; children:
 export function ShellSkeleton() {
   return (
     <div className="min-h-screen px-4 py-3" aria-busy="true">
-      <span translate="no" className="font-display text-2xl">ладно</span>
+      <span translate="no" className="font-display text-2xl">запросто</span>
       <p className="mt-8 text-muted">Открываем кабинет…</p>
     </div>
   );

@@ -31,7 +31,7 @@ type Info = { category: CategoryId; bonus: BonusCodePublic | null; game: GameSet
 
 const hiddenInMemory = new Set<string>();
 const listeners = new Set<() => void>();
-const storeKey = (token: string) => `ladno:game-hidden:${token}`;
+const storeKey = (token: string) => `zaprosto:game-hidden:${token}`;
 
 function isHidden(token: string): boolean {
   if (hiddenInMemory.has(token)) return true;

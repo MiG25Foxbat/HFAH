@@ -7,7 +7,7 @@ import { sql } from "./db";
 import { looksLikeToken, randomToken, sha256Hex } from "./tokens";
 import { hashPassword, verifyPassword } from "./password";
 
-export const SESSION_COOKIE = "ladno_sid";
+export const SESSION_COOKIE = "zaprosto_sid";
 export const SESSION_DAYS = 14;
 export const MIN_PASSWORD_LENGTH = 10;
 export const MAX_PASSWORD_LENGTH = 200;

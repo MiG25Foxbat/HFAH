@@ -180,7 +180,7 @@ export function parseCompanyForm(values: unknown): Parsed<Company> {
   if (text("telegram")) {
     const t = normalizeTelegram(text("telegram"));
     if (t) telegram = t;
-    else fields.telegram = "Telegram: имя пользователя от 5 символов, например @ladno_master";
+    else fields.telegram = "Telegram: имя пользователя от 5 символов, например @zaprosto_master";
   }
   const email = text("email").toLowerCase();
   if (email && !emailSchema.safeParse(email).success) fields.email = "Почта: проверьте адрес, например master@example.ru";

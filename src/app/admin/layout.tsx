@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 
 // Кабинет не индексируется и не кешируется (заголовки — в next.config.ts), здесь — метаданные страницы.
 export const metadata: Metadata = {
-  title: { default: "Кабинет", template: "%s — кабинет «Ладно»" },
+  title: { default: "Кабинет", template: "%s — кабинет «Запросто»" },
   robots: { index: false, follow: false, nocache: true },
 };
 

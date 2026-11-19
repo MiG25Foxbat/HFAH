@@ -11,8 +11,8 @@ export function Header() {
   return (
     <header className="sticky top-0 z-30 bg-bg/85 backdrop-blur">
       <div className="mx-auto flex h-(--header-h) max-w-[1200px] items-center gap-0.5 px-4 min-[900px]:gap-1">
-        <Link href="/" aria-label="Ладно — на главную" translate="no" className="mr-auto inline-flex min-h-12 items-center rounded-full pr-3 font-display text-2xl leading-none">
-          ладно
+        <Link href="/" aria-label="Запросто — на главную" translate="no" className="mr-auto inline-flex min-h-12 items-center rounded-full pr-2 font-display text-xl leading-none min-[400px]:text-2xl">
+          запросто
         </Link>
         <nav aria-label="Основное меню" className="flex items-center">
           <Link href="/uslugi" className={`${navLink} max-[899px]:hidden`}>

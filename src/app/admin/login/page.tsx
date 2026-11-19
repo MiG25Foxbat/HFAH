@@ -11,7 +11,7 @@ export default function LoginPage() {
       <Suspense fallback={null}>
         <RedirectIfSignedIn />
       </Suspense>
-      <p className="font-display text-3xl">ладно</p>
+      <p className="font-display text-3xl">запросто</p>
       <h1 className="mt-8 text-[1.625rem] font-semibold">Вход в кабинет</h1>
       <p className="mt-2 text-muted">Только для владельца компании. Пароль задаётся при установке.</p>
       <LoginForm />

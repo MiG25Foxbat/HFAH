@@ -1,4 +1,4 @@
-// Картинка для соцсетей: public/og.png, 1200 × 630. Знак «ладно», подпись и персонаж на подиуме-рулетке.
+// Картинка для соцсетей: public/og.png, 1200 × 630. Знак «запросто», подпись и персонаж на подиуме-рулетке.
 // Запуск: node scripts/make-og.mjs  (нужен только sharp). Шрифты Unbounded и Golos Text (SIL OFL 1.1) лежат в scripts/fonts/:
 // sharp рисует текст через Pango и берёт шрифт из файла, поэтому результат одинаков на любой машине.
 // Цвета — docs/DESIGN.md (светлая тема). Персонаж — public/posters/other.webp (ящик с инструментами, фирменный синий).
@@ -47,20 +47,21 @@ const base = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}"
 </svg>`;
 
 const poster = await sharp(join(ROOT, "public", "posters", "other.webp")).resize(460, 460).toBuffer();
-const mark = await unbounded(`<span foreground="${INK}" weight="500">ладно</span>`, 150);
+const mark = await unbounded(`<span foreground="${INK}" weight="500">запросто</span>`, 96);
 const lead = await unbounded(`<span foreground="${INK}" weight="500">Мастер на час</span>`, 40);
-const sub = await golos(`<span foreground="${MUTED}" weight="400">Мебель, сантехника, электрика, ремонт.
+const sub = await golos(`<span foreground="${MUTED}" weight="400">Мебель, сантехника, электрика,
+бытовая техника, ремонт.
 Цена за работу видна сразу.</span>`, 28);
 
-// Высота текстовой картинки не равна высоте букв (запас снизу), поэтому отступы заданы числами: знак 95 px, подпись 30 px.
+// Высота текстовой картинки не равна высоте букв (запас снизу), поэтому отступы заданы числами: знак 62 px (без хвостика «р»), подпись 30 px.
 const left = 76;
-const top = 168;
+const top = 186;
 await sharp(Buffer.from(base))
   .composite([
     { input: poster, left: CX - 230, top: CY - 235 },
     { input: mark.data, left, top },
-    { input: lead.data, left, top: top + 135 },
-    { input: sub.data, left, top: top + 135 + 30 + 36 },
+    { input: lead.data, left, top: top + 112 },
+    { input: sub.data, left, top: top + 112 + 30 + 34 },
   ])
   .png({ compressionLevel: 9 })
   .toFile(join(ROOT, "public", "og.png"));

@@ -4,8 +4,8 @@ import type { MetadataRoute } from "next";
 export default function manifest(): MetadataRoute.Manifest {
   return {
     id: "/",
-    name: "Ладно — мастер на час",
-    short_name: "Ладно",
+    name: "Запросто — мастер на час",
+    short_name: "Запросто",
     description: "Мастер на час: сборка мебели, сантехника, электрика, мелкий ремонт. Цена за работу видна сразу.",
     lang: "ru",
     dir: "ltr",

@@ -1,5 +1,5 @@
 """
-E2E публичных страниц, SEO и PWA «Ладно»: /uslugi, /contacts, /privacy, /credits, /offline, metadata, sitemap, robots, manifest, service worker.
+E2E публичных страниц, SEO и PWA «Запросто»: /uslugi, /contacts, /privacy, /credits, /offline, metadata, sitemap, robots, manifest, service worker.
 Запуск против production-сборки (service worker регистрируется только в ней):
   NEXT_DIST_DIR=.next-pwa npm run build && NEXT_DIST_DIR=.next-pwa npx next start -p 3106
   BASE_URL=http://127.0.0.1:3106 python e2e/test_pwa_seo.py
@@ -118,7 +118,7 @@ def add_via_deeplink(page, title):
     dialog = page.locator("dialog[open]")
     dialog.wait_for(state="visible")
     dialog.get_by_role("button", name="Добавить в корзину").click()
-    page.wait_for_function("localStorage.getItem('ladno-cart-v1') !== null")
+    page.wait_for_function("localStorage.getItem('zaprosto-cart-v1') !== null")
 
 
 # ---------------------------------------------------------------------------------------------------------------------------------------------
@@ -185,8 +185,8 @@ def b_choose_deeplink_opens_add_sheet(browser):
     assert dialog.get_by_role("heading", name="Замена смесителя").is_visible()
     assert page.get_by_role("button", name="Сантехника").get_attribute("aria-pressed") == "true", "категория не переключилась"
     dialog.get_by_role("button", name="Добавить в корзину").click()
-    page.wait_for_function("localStorage.getItem('ladno-cart-v1') !== null")
-    assert "plumb-faucet" in page.evaluate("localStorage.getItem('ladno-cart-v1')")
+    page.wait_for_function("localStorage.getItem('zaprosto-cart-v1') !== null")
+    assert "plumb-faucet" in page.evaluate("localStorage.getItem('zaprosto-cart-v1')")
     assert not page.errors, page.errors
     page.context.close()
 
@@ -194,15 +194,15 @@ def b_choose_deeplink_opens_add_sheet(browser):
 @scenario
 def c_contacts_with_channels_and_json_ld(browser):
     try:
-        set_contacts(phone="+7 900 000-00-00", telegram="@ladno_demo", whatsapp="+7 900 000-00-01", email="demo@example.com")
+        set_contacts(phone="+7 900 000-00-00", telegram="@zaprosto_demo", whatsapp="+7 900 000-00-01", email="demo@example.com")
         contacts = html("/contacts")
         assert "ещё не указаны" not in contacts
         assert 'href="tel:+79000000000"' in contacts and "+7 900 000-00-00" in contacts
-        assert 'href="https://t.me/ladno_demo"' in contacts and 'href="https://wa.me/79000000001"' in contacts and 'href="mailto:demo@example.com"' in contacts
+        assert 'href="https://t.me/zaprosto_demo"' in contacts and 'href="https://wa.me/79000000001"' in contacts and 'href="mailto:demo@example.com"' in contacts
         home = html("/")
         ld = json.loads(re.search(r'<script type="application/ld\+json">(.*?)</script>', home, re.S).group(1))
         assert ld["telephone"] == "+7 900 000-00-00" and ld["email"] == "demo@example.com", ld
-        assert "ladno_demo" in json.dumps(ld["sameAs"])
+        assert "zaprosto_demo" in json.dumps(ld["sameAs"])
         privacy = html("/privacy")
         assert 'href="tel:+79000000000"' in privacy and "ещё не указаны владельцем" not in privacy, "контакты в политике"
         assert 'href="tel:+79000000000"' in html("/uslugi"), "телефон в шапке"
@@ -216,12 +216,12 @@ def c_contacts_with_channels_and_json_ld(browser):
 @scenario
 def d_metadata_and_json_ld(browser):
     titles = {
-        "/": "Ладно — мастер на час: цены на работы",
-        "/uslugi": "Услуги и цены — Ладно",
-        "/contacts": "Контакты — Ладно",
-        "/privacy": "Политика обработки персональных данных — Ладно",
-        "/credits": "Источники и лицензии — Ладно",
-        "/offline": "Нет соединения — Ладно",
+        "/": "Запросто — мастер на час: цены на работы",
+        "/uslugi": "Услуги и цены — Запросто",
+        "/contacts": "Контакты — Запросто",
+        "/privacy": "Политика обработки персональных данных — Запросто",
+        "/credits": "Источники и лицензии — Запросто",
+        "/offline": "Нет соединения — Запросто",
     }
     for path, title in titles.items():
         h = html(path)
@@ -287,7 +287,7 @@ def f_manifest_and_icons(browser):
     status, headers, body = fetch("/manifest.webmanifest")
     assert status == 200 and "json" in headers["content-type"], headers
     m = json.loads(body)
-    assert m["name"] == "Ладно — мастер на час" and m["short_name"] == "Ладно" and m["display"] == "standalone"
+    assert m["name"] == "Запросто — мастер на час" and m["short_name"] == "Запросто" and m["display"] == "standalone"
     assert m["start_url"] == "/" and m["scope"] == "/" and m["lang"] == "ru"
     assert re.fullmatch(r"#[0-9A-Fa-f]{6}", m["theme_color"]) and re.fullmatch(r"#[0-9A-Fa-f]{6}", m["background_color"])
     purposes = {(i["sizes"], i.get("purpose")) for i in m["icons"]}
@@ -323,7 +323,7 @@ def g_service_worker_registers_and_controls(browser):
     sw_ready(page)
     assert page.evaluate("navigator.serviceWorker.controller.scriptURL") == BASE + "/sw.js"
     keys = cache_urls(page)
-    shell = {u for n, u in keys if n == "ladno-shell-v1"}
+    shell = {u for n, u in keys if n == "zaprosto-shell-v2"}
     for need in ("/offline", "/icons/icon.svg", "/icons/icon-192.png", "/icons/icon-512.png"):
         assert need in shell, f"в кеше оболочки нет {need}: {sorted(shell)}"
     assert any(u.startswith("/_next/static/") and u.endswith(".css") for u in shell), "стили офлайн-страницы не в кеше"
@@ -375,7 +375,7 @@ def i_offline_shows_offline_page_and_keeps_cart(browser):
     page.evaluate("localStorage.clear()")
     add_via_deeplink(page, "Замена розетки")
     sw_ready(page)
-    cart_before = page.evaluate("localStorage.getItem('ladno-cart-v1')")
+    cart_before = page.evaluate("localStorage.getItem('zaprosto-cart-v1')")
     assert "el-socket" in cart_before
     ctx = page.context
     ctx.set_offline(True)
@@ -389,7 +389,7 @@ def i_offline_shows_offline_page_and_keeps_cart(browser):
         assert page.evaluate("parseFloat(getComputedStyle(document.querySelector('main h1')).fontSize)") == 28
         # скрипты из кеша: гидратация прошла, шапка показывает корзину из localStorage
         page.wait_for_function("document.querySelector('header [aria-label*=\"орзин\"]')?.getAttribute('aria-label')?.match(/1/)", timeout=8000)
-        assert page.evaluate("localStorage.getItem('ladno-cart-v1')") == cart_before, "корзина изменилась"
+        assert page.evaluate("localStorage.getItem('zaprosto-cart-v1')") == cart_before, "корзина изменилась"
         # любой другой адрес без сети — тоже офлайн-страница, но API и заявки по ссылке без подмены
         page.goto(BASE + "/o/doesnotexistdoesnotexistdoesnotexist12345", wait_until="load")
         assert page.get_by_role("heading", name="Нет соединения").is_visible()
@@ -400,7 +400,7 @@ def i_offline_shows_offline_page_and_keeps_cart(browser):
         ctx.set_offline(False)
     page.goto(BASE + "/contacts", wait_until="networkidle")
     assert page.get_by_role("heading", name="Контакты", exact=True).is_visible(), "после возврата связи открылась не страница"
-    assert page.evaluate("localStorage.getItem('ladno-cart-v1')") == cart_before
+    assert page.evaluate("localStorage.getItem('zaprosto-cart-v1')") == cart_before
     # «Повторить» после возвращения связи открывает ту же страницу
     ctx.set_offline(True)
     page.goto(BASE + "/contacts", wait_until="load")
