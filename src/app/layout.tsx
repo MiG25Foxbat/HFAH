@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Golos_Text, Unbounded } from "next/font/google";
+import { SwRegister } from "@/components/pwa/SwRegister";
 import { THEME_INIT_SCRIPT } from "@/lib/theme";
 import "./globals.css";
 import "./client.css";
@@ -22,7 +23,16 @@ export const metadata: Metadata = {
   metadataBase: new URL(process.env.APP_ORIGIN ?? "http://localhost:3000"),
   title: { default: "Ладно — мастер на час", template: "%s — Ладно" },
   description: "Мастер на час: сборка мебели, сантехника, электрика, мелкий ремонт. Цены за работу видны сразу.",
-  openGraph: { locale: "ru_RU", type: "website", siteName: "Ладно" },
+  openGraph: {
+    locale: "ru_RU",
+    type: "website",
+    siteName: "Ладно",
+    images: [{ url: "/og.png", width: 1200, height: 630, alt: "Ладно — мастер на час. Ящик с инструментами с улыбкой на подиуме-рулетке" }],
+  },
+  twitter: { card: "summary_large_image" },
+  // значки собирает scripts/make-icons.mjs; /favicon.ico подхватывается из src/app/favicon.ico
+  icons: { icon: [{ url: "/icons/icon.svg", type: "image/svg+xml" }], apple: [{ url: "/icons/apple-touch-icon.png", sizes: "180x180" }] },
+  appleWebApp: { capable: true, title: "Ладно" },
 };
 
 export const viewport: Viewport = {
@@ -42,7 +52,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
       </head>
-      <body>{children}</body>
+      <body>
+        {children}
+        <SwRegister />
+      </body>
     </html>
   );
 }

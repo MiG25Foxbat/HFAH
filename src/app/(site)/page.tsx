@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
+import { LocalBusinessJsonLd } from "@/components/seo/LocalBusinessJsonLd";
 import { Storefront } from "@/components/shop/Storefront";
 import { CATEGORIES, type CategoryId } from "@/lib/catalog";
 import { getShopData } from "@/lib/shop-data";
@@ -18,6 +19,9 @@ export default function HomePage({ searchParams }: PageProps<"/">) {
     <main id="main">
       <Suspense fallback={<StorefrontSkeleton />}>
         <Home searchParams={searchParams} />
+      </Suspense>
+      <Suspense fallback={null}>
+        <LocalBusinessJsonLd />
       </Suspense>
     </main>
   );

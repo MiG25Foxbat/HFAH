@@ -36,6 +36,8 @@ const nextConfig: NextConfig = {
       { source: "/api/:path*", headers: noStore },
       { source: "/o/:path*", headers: [...noStore, noReferrer] },
       { source: "/admin/:path*", headers: [...noStore, noReferrer] },
+      // service worker браузер перепроверяет при каждой загрузке: иначе обновление файла дойдёт до клиентов с задержкой
+      { source: "/sw.js", headers: [{ key: "Cache-Control", value: "no-cache" }] },
     ];
   },
 };
