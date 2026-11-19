@@ -166,6 +166,34 @@ def run():
         page.keyboard.press("Home")
         page.wait_for_timeout(1200)
 
+        # 2d2. Ракурс по умолчанию зависит от категории: сантехника в три четверти (излив не закрывает лицо), остальные спереди.
+        def yaw_mod(y):  # в (-pi, pi]
+            return (y + math.pi) % (2 * math.pi) - math.pi
+
+        click_cat(page, "plumbing")
+        page.wait_for_timeout(1500)
+        yp = yaw_mod(rig_yaw(page))
+        check("plumbing: ракурс по умолчанию — три четверти (35–45°)", 0.61 <= abs(yp) <= 0.79, f"yaw={math.degrees(yp):.1f}°")
+        page.mouse.move(cx, cy)
+        page.mouse.down()
+        for i in range(1, 13):
+            page.mouse.move(cx + i * 12, cy)
+            page.wait_for_timeout(16)
+        page.wait_for_timeout(200)
+        page.mouse.up()
+        page.wait_for_timeout(300)
+        check("plumbing: после вращения ракурс отличается", abs(yaw_mod(rig_yaw(page) - yp)) > 0.5)
+        page.click("button[aria-label='Сбросить ракурс']")
+        page.wait_for_timeout(1500)
+        check("plumbing: «Сбросить ракурс» возвращает к трём четвертям", abs(yaw_mod(rig_yaw(page) - yp)) < 0.01, f"yaw={math.degrees(yaw_mod(rig_yaw(page))):.1f}° ожидали {math.degrees(yp):.1f}°")
+        click_cat(page, "furniture")
+        page.wait_for_timeout(1500)
+        check("furniture: после сантехники вид снова спереди", abs(yaw_mod(rig_yaw(page))) < 0.01, f"yaw={math.degrees(yaw_mod(rig_yaw(page))):.1f}°")
+        page.screenshot(path=os.path.join(SHOTS, "stage-desktop-furniture-default.png"))
+        click_cat(page, "plumbing")
+        page.wait_for_timeout(1500)
+        page.screenshot(path=os.path.join(SHOTS, "stage-desktop-plumbing-default.png"))
+
         # 2e. Лица и реплики.
         click_cat(page, "furniture")
         page.wait_for_timeout(1500)

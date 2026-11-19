@@ -469,6 +469,12 @@ def test_categories(browser, api):
             vis = len(visible_spots(page))
             if scheme == "light":
                 check(f"{cat}: игра запущена, пятен {n}, видно с первого ракурса {vis}", 8 <= n <= 14 and vis >= 2)
+                # у сантехники ракурс по умолчанию в три четверти (35–45°), у остальных — спереди; «первые» пятна ставятся с этой стороны
+                yaw = g(page, "yaw()")
+                want = 0.61 <= abs(yaw) <= 0.79 if cat == "plumbing" else abs(yaw) < 0.01
+                check(f"{cat}: ракурс по умолчанию", want, f"yaw={yaw:.3f}")
+                front = [s for s in visible_spots(page) if s["i"] < 3]
+                check(f"{cat}: первые пятна видны с ракурса по умолчанию", len(front) >= 2, f"{len(front)} из 3")
                 # скорость луча по Body (самая тяжёлая модель — plumbing, ~12,5 тыс. треугольников)
                 ms = page.evaluate("(() => { const t = performance.now(); for (let i = 0; i < 40; i++) window.__game.spotScreen(0); return (performance.now() - t) / 40; })()")
                 print(f"     {cat}: один луч + проекция ≈ {ms:.2f} мс (swiftshader, настольный процессор)")

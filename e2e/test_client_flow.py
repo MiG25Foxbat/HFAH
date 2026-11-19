@@ -539,6 +539,71 @@ def h_other_requires_photo_and_manual_never_free(browser):
 
 
 @scenario
+def h3_photo_upload_error_no_hscroll(browser):
+    """Ошибка загрузки фото на 390 px: сообщение и «Повторить» видны, страница не шире экрана (раньше растягивалась до ~426 px); повтор работает."""
+    page = new_page(browser)  # 390 × 844
+    fresh_home(page)
+    add_work(page, "Сборка шкафа")
+    page.goto(BASE + "/checkout", wait_until="networkidle")
+    page.route("**/api/uploads", lambda r: r.fulfill(status=500, content_type="application/json", body=json.dumps({"error": "Не удалось сохранить фото.", "code": "server"})))
+    page.locator("input[type=file]").set_input_files({**PHOTO, "name": "IMG_20261119_123456_очень_длинное_имя_файла_с_телефона.png"})
+    page.wait_for_selector("[data-photo-status=error]", timeout=30000)
+    row = page.locator("[data-photo-status=error]")
+    expect(row).to_contain_text("Не удалось")
+    expect(row.get_by_role("button", name="Повторить")).to_be_visible()
+    no_hscroll(page, "оформление: ошибка загрузки фото 390")
+    shot(page, "checkout-photo-error-390-light", full=True)
+    # повтор после ошибки
+    page.unroute("**/api/uploads")
+    row.get_by_role("button", name="Повторить").click()
+    page.wait_for_selector("[data-photo-status=done]", timeout=30000)
+    no_hscroll(page, "оформление: фото загружено 390")
+    assert not [e for e in page.errors if "Download the React DevTools" not in e], page.errors[:3]
+    page.context.close()
+
+
+@scenario
+def h4_order_page_says_what_we_do_not_do(browser):
+    """Упомянули «не берём» (газовая плита): на /o/<токен> спокойное уведомление с подсказкой; в публичном JSON только название и подсказка."""
+    page = new_page(browser)
+    page.goto(BASE + "/", wait_until="networkidle")
+
+    def make(comment):
+        res = page.context.request.post(
+            BASE + "/api/orders",
+            headers={"Origin": BASE, "Idempotency-Key": str(uuid.uuid4()), "Content-Type": "application/json"},
+            data=json.dumps({
+                "name": f"Не Берём {RUN}", "phone": "+79123456789", "address": "ул. Вымышленная, д. 1, кв. 2", "materials": "have", "consent": True,
+                "comment": comment, "lines": [{"serviceId": "furn-wardrobe", "qty": 1}],
+            }),
+        )
+        assert res.status == 201, res.text()
+        return res.json()["token"]
+
+    token = make("Заодно подключить газовую плиту")
+    page.goto(f"{BASE}/o/{token}", wait_until="networkidle")
+    note = page.get_by_test_id("order-excluded")
+    expect(note).to_be_visible()
+    expect(note).to_contain_text("В заявке упомянуто: газовое оборудование.")
+    expect(note).to_contain_text("Этим мы не занимаемся — мастер скажет, к кому обратиться.")
+    expect(note).to_contain_text("Обратитесь в газовую службу")
+    no_hscroll(page, "страница заявки с уведомлением 390")
+    shot(page, "order-excluded-390-light", full=True)
+    # публичный JSON: только название и подсказка, без ключевого слова, места совпадения, телефона и адреса
+    data = page.context.request.get(f"{BASE}/api/orders/{token}").json()
+    assert [list(e) for e in data["excluded"]] == [["title", "hint"]], data["excluded"]
+    assert data["excluded"][0]["title"] == "Газовое оборудование"
+    raw = json.dumps(data, ensure_ascii=False)
+    assert not re.search(r"79123456789|Вымышленная|keyword|source|comment", raw), "в публичном JSON лишнее"
+    # заявка без «не берём»: уведомления нет
+    clean = make("Позвонить за час")
+    page.goto(f"{BASE}/o/{clean}", wait_until="networkidle")
+    assert page.get_by_test_id("order-excluded").count() == 0
+    assert page.context.request.get(f"{BASE}/api/orders/{clean}").json()["excluded"] == []
+    page.context.close()
+
+
+@scenario
 def h2_mixed_order_shows_known_and_photo_separately(browser):
     page = new_page(browser)
     fresh_home(page)
@@ -595,6 +660,23 @@ def k_unknown_token_and_robots(browser):
     assert not re.search(r"Заявка №|\+7|912", body)
     page.goto(BASE + "/o/ab", wait_until="networkidle")
     assert "Страница не найдена" in page.locator("body").inner_text()
+    page.context.close()
+
+
+@scenario
+def k2_security_headers(browser):
+    """Частичная CSP и X-Frame-Options на всех маршрутах (страницы, приватные, API, service worker); браузер не сообщает о нарушениях."""
+    page = new_page(browser)
+    want = ["frame-ancestors 'none'", "object-src 'none'", "base-uri 'self'", "form-action 'self'"]
+    for path in ["/", "/checkout", "/uslugi", "/o/" + "x" * 43, "/admin/login", "/api/orders/" + "x" * 43, "/sw.js", "/offline"]:
+        r = page.context.request.get(BASE + path)
+        csp = r.headers.get("content-security-policy", "")
+        assert all(d in csp for d in want), f"{path}: CSP {csp!r}"
+        assert r.headers.get("x-frame-options") == "DENY", f"{path}: X-Frame-Options {r.headers.get('x-frame-options')!r}"
+        assert "script-src" not in csp, f"{path}: script-src без nonce сломает инлайн-скрипт темы"
+    # главная и страница заявки с живыми скриптами: нарушений CSP в консоли нет
+    page.goto(BASE + "/", wait_until="networkidle")
+    no_errors(page, "главная под CSP")
     page.context.close()
 
 
@@ -694,9 +776,12 @@ if __name__ == "__main__":
             g_network_failure_then_retry_one_order,
             g2_changed_payload_gets_new_key,
             h_other_requires_photo_and_manual_never_free,
+            h3_photo_upload_error_no_hscroll,
+            h4_order_page_says_what_we_do_not_do,
             h2_mixed_order_shows_known_and_photo_separately,
             j_excluded_search_and_deeplinks,
             k_unknown_token_and_robots,
+            k2_security_headers,
             l_keyboard_a11y,
             m_screenshots_mobile_and_dark,
         ]:

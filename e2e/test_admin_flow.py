@@ -119,6 +119,15 @@ def run():
         check(r.status == 401, "фото без входа: /api/admin/photos/x → 401", str(r.status))
         r = api.get(f"{BASE}/api/admin/photos/{uuid.uuid4()}")
         check(r.status == 401, "фото без входа: корректный uuid → 401", str(r.status))
+        # настоящий 307 (src/proxy.ts), а не 200 с редиректом внутри потока; вход не редиректится; нужна только cookie, не её валидность
+        for path in ["/admin", "/admin/tariffs", "/admin/orders/x"]:
+            r = api.get(f"{BASE}{path}", max_redirects=0)
+            check(r.status == 307 and r.headers.get("location", "").endswith("/admin/login"), f"без cookie {path} → 307 /admin/login", f"{r.status} {r.headers.get('location')}")
+            check("no-store" in r.headers.get("cache-control", ""), f"307 для {path} не кешируется", r.headers.get("cache-control", ""))
+        r = api.get(f"{BASE}/admin/login", max_redirects=0)
+        check(r.status == 200, "страница входа открыта без cookie (200)", str(r.status))
+        r = api.get(f"{BASE}/admin", max_redirects=0, headers={"Cookie": "ladno_sid=not-a-real-session"})
+        check(r.status != 307, "с любой cookie прокси пропускает: подлинность решает requireOwner()", str(r.status))
         page = anon.new_page()
         for path in ["/admin", "/admin/orders/x", f"/admin/orders/{uuid.uuid4()}", "/admin/tariffs", "/admin/company", "/admin/game", "/admin/characters", "/admin/access"]:
             page.goto(f"{BASE}{path}")
