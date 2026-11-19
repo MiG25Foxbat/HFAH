@@ -41,3 +41,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# 3D-исходники: пакеты скриптов Blender ставятся командой npm install в assets-src/blender/scripts; резервные копии Blender
+assets-src/blender/scripts/node_modules
+assets-src/blender/*.blend1

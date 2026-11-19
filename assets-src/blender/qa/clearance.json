@@ -1,0 +1,37 @@
+{
+ "furniture": {
+  "hand_min": 0.0591,
+  "hand_min_at": "Idle+Wave f80 hand_L",
+  "tube_min": 0.0205,
+  "overlaps": 0,
+  "samples": 148
+ },
+ "plumbing": {
+  "hand_min": 0.0396,
+  "hand_min_at": "Idle+Wave f74 hand_L",
+  "tube_min": 0.0131,
+  "overlaps": 0,
+  "samples": 148
+ },
+ "electric": {
+  "hand_min": 0.1315,
+  "hand_min_at": "Idle+Wave f46 hand_R",
+  "tube_min": 0.0538,
+  "overlaps": 0,
+  "samples": 148
+ },
+ "repair": {
+  "hand_min": 0.0465,
+  "hand_min_at": "Idle+Wave f46 hand_R",
+  "tube_min": 0.0048,
+  "overlaps": 0,
+  "samples": 148
+ },
+ "other": {
+  "hand_min": 0.0425,
+  "hand_min_at": "Idle+Wave f70 hand_L",
+  "tube_min": 0.0065,
+  "overlaps": 0,
+  "samples": 148
+ }
+}

@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Ladno GLB check</title>
+<style>html,body{margin:0;background:#EEF0EB;font:12px system-ui}canvas{display:block}#log{position:fixed;left:8px;top:8px;max-width:60vw;white-space:pre;color:#1C231F;background:#fffc;padding:4px}</style>
+<script type="importmap">{"imports":{"three":"../node_modules/three/build/three.module.js","three/addons/":"../node_modules/three/examples/jsm/"}}</script>
+</head><body><div id="log"></div>
+<script type="module">
+import * as THREE from "three";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { MeshoptDecoder } from "three/addons/libs/meshopt_decoder.module.js";
+import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
+const q = new URLSearchParams(location.search);
+const dir = q.get("dir") || "optimized";
+const useEnv = q.get("env") === "1";
+const waveT = q.has("t") ? parseFloat(q.get("t")) : null;      // freeze Wave at t seconds
+const blinkNow = q.get("blink") === "1";
+const cats = ["furniture", "plumbing", "electric", "repair", "other"];
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+renderer.setPixelRatio(1); renderer.setSize(innerWidth, innerHeight);
+renderer.toneMapping = THREE.NeutralToneMapping;
+document.body.appendChild(renderer.domElement);
+const scene = new THREE.Scene(); scene.background = new THREE.Color(0xEEF0EB);
+if (useEnv) { const pm = new THREE.PMREMGenerator(renderer); scene.environment = pm.fromScene(new RoomEnvironment(), 0.04).texture; scene.environmentIntensity = 0.7; }
+scene.add(new THREE.HemisphereLight(0xffffff, 0x8a8f88, 1.2));
+const sun = new THREE.DirectionalLight(0xffffff, 1.8); sun.position.set(-2, 4, 5); scene.add(sun);
+const cam = new THREE.PerspectiveCamera(30, innerWidth / innerHeight, 0.1, 100);
+const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
+const mixers = [], report = {};
+for (let i = 0; i < cats.length; i++) {
+  const g = await loader.loadAsync(`../../${dir}/${cats[i]}.glb`);
+  const m = g.scene; m.position.x = (i - 2) * 1.55; scene.add(m);
+  m.rotation.y = -0.45;
+  const mx = new THREE.AnimationMixer(m); mixers.push(mx);
+  const names = g.animations.map(a => `${a.name}:${a.duration.toFixed(2)}`);
+  const get = n => m.getObjectByName(n);
+  report[cats[i]] = { clips: names, nodes: ["Root","Rig","Body","Face","Lid_L","Lid_R","Arm_L","Arm_R","Hand_L","Hand_R"].map(n => n + (get(n) ? "✓" : "✗")).join(" "),
+    bodyIsMesh: !!get("Body")?.isMesh, bodyMaterials: get("Body")?.material?.name, size: new THREE.Box3().setFromObject(m).getSize(new THREE.Vector3()).toArray().map(v => +v.toFixed(2)) };
+  const act = n => mx.clipAction(THREE.AnimationClip.findByName(g.animations, n));
+  act("Idle").play();
+  if (waveT !== null) { const w = act("Wave"); w.play(); w.time = waveT; w.paused = true; }
+  if (blinkNow) { const b = act("Blink"); b.play(); b.time = 0.07; b.paused = true; }
+  mx._wave = act("Wave"); mx._blink = act("Blink");
+}
+if (!q.has("nolog")) document.getElementById("log").textContent = JSON.stringify(report, null, 1);
+window.__report = report;
+cam.position.set(0, 1.25, +(q.get("z") || 8.2)); cam.lookAt(0, 0.8, 0);
+const timer = new THREE.Timer(); timer.connect(document);
+let t0 = 0;
+renderer.setAnimationLoop(() => { timer.update(); const d = timer.getDelta(); mixers.forEach(m => m.update(waveT === null ? d : 0)); renderer.render(scene, cam); });
+if (waveT === null) { setTimeout(() => mixers.forEach(m => { m._wave.reset().setLoop(THREE.LoopOnce).play(); m._blink.reset().setLoop(THREE.LoopOnce).play(); }), 800); }
+window.__ready = true;
+if (q.has("save")) setTimeout(async () => { mixers.forEach(m => m.update(0)); renderer.render(scene, cam); const d = renderer.domElement.toDataURL("image/png"); await fetch("/save?name=" + q.get("save"), { method: "POST", body: d }); document.title = "saved"; }, 3000);
+</script></body></html>
