@@ -1,4 +1,5 @@
 import { lowerFirst } from "@/lib/shop";
+import type { PublicExcluded } from "@/lib/order-types";
 import type { ExcludedItem } from "@/lib/settings";
 import { AlertIcon, ChevronIcon } from "@/components/ui/icons";
 
@@ -17,6 +18,28 @@ export function ExcludedNote({ items, soft = false, className = "" }: { items: r
         {soft && <p className="text-muted">Заявку всё равно можно отправить: мастер уточнит, чем сможет помочь.</p>}
       </div>
     </div>
+  );
+}
+
+/** Страница заявки: спокойное уведомление, что в тексте клиента есть то, чем компания не занимается. Заявка при этом принята. */
+export function OrderExcludedNotice({ items }: { items: readonly PublicExcluded[] }) {
+  if (!items.length) return null;
+  const hinted = items.filter((e) => e.hint);
+  return (
+    <section aria-label="Чем мы не занимаемся" className="flex gap-3 rounded-panel border border-ply bg-surface-2 px-4 py-3.5 text-[0.9375rem] leading-snug" data-testid="order-excluded">
+      <AlertIcon className="mt-0.5 size-5 shrink-0 text-ply" />
+      <div className="grid min-w-0 gap-1.5 break-words">
+        <p>
+          <span className="font-semibold">В заявке упомянуто: {items.map((e) => lowerFirst(e.title)).join("; ")}.</span> Этим мы не занимаемся — мастер скажет, к кому обратиться.
+        </p>
+        {hinted.map((e) => (
+          <p key={e.title} className="text-muted">
+            {items.length > 1 && <span className="font-medium text-ink">{e.title}. </span>}
+            {e.hint}
+          </p>
+        ))}
+      </div>
+    </section>
   );
 }
 

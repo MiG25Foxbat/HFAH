@@ -6,7 +6,7 @@ import { getSettings } from "./settings";
 import { listServices } from "./services";
 import { looksLikeToken, orderToken, sha256Hex } from "./tokens";
 import { PricingError, buildPricingSnapshot, type PricingSnapshot } from "@/lib/pricing";
-import { findExcluded } from "@/lib/excluded";
+import { findExcluded, type ExcludedMatch } from "@/lib/excluded";
 import type { OrderData } from "@/lib/order-schema";
 import type { OrderStatus, PublicOrder } from "@/lib/order-types";
 
@@ -144,6 +144,7 @@ interface PublicRow {
   finalPrice: number | null;
   agreedAt: Date | null;
   photoCount: number;
+  excludedMatches: ExcludedMatch[];
   bonusCode: string | null;
   bonusAmount: number | null;
   bonusMinOrder: number | null;
@@ -157,7 +158,7 @@ export async function getPublicOrder(token: string): Promise<PublicOrder | null>
   const [[row], settings] = await Promise.all([
     sql<PublicRow[]>`
       select o.number, o.status, o.created_at, o.desired_date::text as desired_date, o.desired_time, o.materials,
-             o.pricing_snapshot, o.final_price, o.agreed_at,
+             o.pricing_snapshot, o.final_price, o.agreed_at, o.excluded_matches,
              (select count(*)::int from photos p where p.order_id = o.id) as photo_count,
              b.code as bonus_code, b.amount as bonus_amount, b.min_order as bonus_min_order,
              b.expires_at as bonus_expires_at, b.status as bonus_status
@@ -173,6 +174,7 @@ export async function getPublicOrder(token: string): Promise<PublicOrder | null>
     createdAt: row.createdAt.toISOString(),
     lines: s.lines.map((l) => ({
       title: l.title,
+      category: l.category,
       qty: l.qty,
       unit: l.unit,
       unitPrice: l.unitPrice,
@@ -199,6 +201,11 @@ export async function getPublicOrder(token: string): Promise<PublicOrder | null>
     finalPrice: row.finalPrice,
     agreedAt: row.agreedAt?.toISOString() ?? null,
     photoCount: row.photoCount,
+    // Только названия и подсказки: ключевые слова и место совпадения остаются у владельца.
+    excluded: [...new Set(row.excludedMatches.map((m) => m.title))].map((title) => ({
+      title,
+      hint: settings.company.excluded.find((x) => x.title === title)?.hint ?? "",
+    })),
     bonus: row.bonusCode
       ? {
           code: row.bonusCode,
@@ -208,6 +215,7 @@ export async function getPublicOrder(token: string): Promise<PublicOrder | null>
           status: row.bonusStatus as "issued" | "redeemed" | "void",
         }
       : null,
+    facesEnabled: settings.characters.facesEnabled,
     game: settings.game,
   };
 }

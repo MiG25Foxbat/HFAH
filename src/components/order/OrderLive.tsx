@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { GameOffer } from "@/components/game/GameOffer";
+import { OrderExcludedNotice } from "@/components/shop/ExcludedNote";
 import { PriceSummary } from "@/components/shop/PriceSummary";
 import { Button, ButtonLink } from "@/components/ui/controls";
 import { CheckIcon, CopyIcon, RefreshIcon } from "@/components/ui/icons";
@@ -172,6 +173,8 @@ export function OrderLive({ token, initial }: { token: string; initial: PublicOr
         <p className="max-w-prose leading-snug">{STATUS_TEXT[order.status]}</p>
       </header>
 
+      <OrderExcludedNotice items={order.excluded} />
+
       {(order.finalPrice !== null || order.agreedAt) && (
         <section aria-label="Согласовано с мастером" className="grid gap-4 rounded-panel border-2 border-ok bg-surface p-5">
           <h2 className="text-[1.25rem] font-semibold">Согласовано с мастером</h2>
@@ -243,7 +246,7 @@ export function OrderLive({ token, initial }: { token: string; initial: PublicOr
         </dl>
       </section>
 
-      <GameOffer token={token} mode={order.game.mode} />
+      <GameOffer token={token} mode={order.game.mode} facesEnabled={order.facesEnabled} />
 
       <section aria-label="Ссылка на заявку" className="grid gap-3 rounded-panel border border-line bg-surface p-5">
         <h2 className="text-[1.25rem] font-semibold">Ссылка на заявку</h2>

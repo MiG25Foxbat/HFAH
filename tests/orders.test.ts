@@ -92,10 +92,26 @@ describe.skipIf(!hasDb)("POST /api/orders", () => {
       finalPrice: null,
       agreedAt: null,
       bonus: null,
+      excluded: [],
+      facesEnabled: true,
       totals: { subtotal: 3500, worksTotal: 3500, knownTotal: 3500, hasManual: false },
       game: { mode: "bonus", bonusAmount: 300 },
     });
-    expect(pub.lines[0]).toMatchObject({ title: "Сборка шкафа", qty: 1, unit: "pcs", unitPrice: 3500, total: 3500 });
+    expect(pub.lines[0]).toMatchObject({ title: "Сборка шкафа", category: "furniture", qty: 1, unit: "pcs", unitPrice: 3500, total: 3500 });
+  });
+
+  it("публичная заявка показывает, что упомянуто из «не берём»: название и подсказка, без ключевого слова и места", async () => {
+    const { token } = await (await post(validOrder({ comment: "Ещё надо поменять газовую плиту и котёл" }))).json();
+    const res = await getOrderRoute(new Request(`${ORIGIN}/api/orders/${token}`), ctx({ token }));
+    const text = await res.text();
+    const pub = JSON.parse(text);
+    // два ключевых слова одного пункта дают одну запись
+    expect(pub.excluded).toEqual([{ title: "Газовое оборудование", hint: expect.stringContaining("газовую службу") }]);
+    for (const hidden of ["keyword", "source", "газов\"", "+79161234567", "Вымышленная"]) expect(text).not.toContain(hidden);
+    // пункт убрали из списка владельца: остаётся название, подсказки нет
+    await sql`update settings set company = jsonb_set(company, '{excluded}', '[]'::jsonb) where id = 1`;
+    const later = await (await getOrderRoute(new Request(`${ORIGIN}/api/orders/${token}`), ctx({ token }))).json();
+    expect(later.excluded).toEqual([{ title: "Газовое оборудование", hint: "" }]);
   });
 
   it("публичная заявка показывает изменения владельца", async () => {

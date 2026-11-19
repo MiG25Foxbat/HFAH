@@ -1,5 +1,5 @@
 /** Типы заявки, общие для сервера, клиентской страницы /o/<токен> и кабинета. Без серверных импортов. */
-import type { Unit } from "./catalog";
+import type { CategoryId, Unit } from "./catalog";
 import type { GameSettings } from "./settings";
 import type { Materials } from "./order-schema";
 
@@ -15,6 +15,8 @@ export const ORDER_STATUS_LABEL: Record<OrderStatus, string> = {
 
 export interface PublicOrderLine {
   title: string;
+  /** Категория работы из снимка заявки: по ней клиентская игра выбирает предмет. */
+  category: CategoryId;
   qty: number;
   unit: Unit;
   /** null — «По фото». */
@@ -32,6 +34,13 @@ export interface BonusCodePublic {
   minOrder: number;
   expiresAt: string;
   status: "issued" | "redeemed" | "void";
+}
+
+/** То, что клиент упомянул в заявке, но компания этого не делает (из списка «не берём»). Без ключевых слов и места совпадения. */
+export interface PublicExcluded {
+  title: string;
+  /** Подсказка, куда обратиться (из текущих настроек компании); пусто, если пункт убрали из списка. */
+  hint: string;
 }
 
 /** Ответ GET /api/orders/[token]. Здесь нет телефона, адреса, доступа, заметки владельца и фото. */
@@ -62,7 +71,11 @@ export interface PublicOrder {
   /** Согласованное время выезда (ISO). */
   agreedAt: string | null;
   photoCount: number;
+  /** Из текста самого клиента найдено то, чем компания не занимается. Пусто, если ничего. */
+  excluded: PublicExcluded[];
   bonus: BonusCodePublic | null;
+  /** Лица у персонажей включены владельцем: игра рисует предмет с лицом или без. */
+  facesEnabled: boolean;
   /** Режим и условия игры: клиентская страница решает, предлагать ли её. */
   game: GameSettings;
 }
