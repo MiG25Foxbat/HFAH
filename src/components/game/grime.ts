@@ -9,7 +9,8 @@
  */
 import * as THREE from "three";
 import { MeshSurfaceSampler } from "three/addons/math/MeshSurfaceSampler.js";
-import { DEFAULT_ELEV } from "@/components/stage/rig";
+import { DEFAULT_ELEV, DEFAULT_YAW } from "@/components/stage/rig";
+import type { CategoryId } from "@/lib/catalog";
 import type { Reach } from "./reach";
 
 export const MASK_SIZE = 512;
@@ -137,8 +138,10 @@ export function generateSpots(category: string, body: THREE.Mesh, parts: THREE.M
   const wantCount = 8 + Math.floor(random() * 7);
   const kinds = KIND_WEIGHTS[category] ?? KIND_WEIGHTS.other;
   const kindTotal = kinds.reduce((s, [, w]) => s + w, 0);
-  const front = viewDir(0, DEFAULT_ELEV, new THREE.Vector3());
-  const back = viewDir(Math.PI, DEFAULT_ELEV, new THREE.Vector3());
+  // Подиум повёрнут на DEFAULT_YAW, а viewDir — направление к камере в системе модели: у модели этот угол со знаком минус.
+  const homeYaw = DEFAULT_YAW[category as CategoryId] ?? 0;
+  const front = viewDir(-homeYaw, DEFAULT_ELEV, new THREE.Vector3());
+  const back = viewDir(Math.PI - homeYaw, DEFAULT_ELEV, new THREE.Vector3());
   const spots: Spot[] = [];
   const faces = good ? faceData(body) : null;
   const locate = buildUvLocator(body);

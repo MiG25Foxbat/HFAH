@@ -9,6 +9,7 @@
 import { useEffect, useRef, type ReactNode, type RefObject } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
+import type { CategoryId } from "@/lib/catalog";
 import type { Activity } from "./activity";
 
 export type RigApi = {
@@ -19,6 +20,22 @@ export type RigApi = {
 };
 
 export const DEFAULT_ELEV = 0.36;
+/**
+ * Ракурс по умолчанию — поворот подиума вокруг вертикали, рад (минус — предмет поворачивается лицом влево). У смесителя излив
+ * смотрит прямо на камеру и закрывает лицо, поэтому сантехника стоит в три четверти (−40°: излив уходит влево, лицо ближе к ключевому
+ * свету сцены); остальные предметы симметричны и лучше всего читаются спереди. «Сбросить ракурс» и смена категории возвращают именно
+ * к нему; первые пятна игры ставятся с этой стороны (grime.ts).
+ */
+export const DEFAULT_YAW: Record<CategoryId, number> = {
+  furniture: 0,
+  plumbing: -0.7,
+  electrics: 0,
+  repair: 0,
+  other: 0,
+};
+const TAU = Math.PI * 2;
+/** Ближайший к yaw «оборот» цели: сброс не крутит лишний раз, а едет по кратчайшему пути. */
+const nearestTo = (yaw: number, target: number) => target + Math.round((yaw - target) / TAU) * TAU;
 const ELEV_MIN = 0.12;
 const ELEV_MAX = 1.05;
 const OVERSHOOT = 0.12; // насколько можно «растянуть» предел при жесте (резинка)
@@ -36,12 +53,15 @@ const rubber = (x: number) => OVERSHOOT * (1 - Math.exp(-x / OVERSHOOT));
 const softClamp = (v: number) => (v < ELEV_MIN ? ELEV_MIN - rubber(ELEV_MIN - v) : v > ELEV_MAX ? ELEV_MAX + rubber(v - ELEV_MAX) : v);
 
 export function Rig({
+  category,
   apiRef,
   activity,
   reduced,
   groupRef,
   children,
 }: {
+  /** Категория на сцене: от неё зависит ракурс по умолчанию; при смене категории вид возвращается к нему. */
+  category: CategoryId;
   apiRef: RefObject<RigApi | null>;
   activity: { current: Activity };
   reduced: boolean;
@@ -51,8 +71,9 @@ export function Rig({
   const gl = useThree((s) => s.gl);
   const invalidate = useThree((s) => s.invalidate);
   const reducedRef = useRef(reduced);
+  const homeYaw = useRef(DEFAULT_YAW[category]);
   const st = useRef({
-    yaw: 0,
+    yaw: DEFAULT_YAW[category],
     yawVel: 0,
     elevRaw: DEFAULT_ELEV,
     dragging: false,
@@ -66,6 +87,23 @@ export function Rig({
   useEffect(() => {
     reducedRef.current = reduced;
   }, [reduced]);
+
+  // Новая категория — новый ракурс по умолчанию; вид плавно (при reduced motion сразу) возвращается к нему.
+  const lastCategory = useRef(category);
+  useEffect(() => {
+    if (lastCategory.current === category) return;
+    lastCategory.current = category;
+    homeYaw.current = DEFAULT_YAW[category];
+    const s = st.current;
+    s.yawVel = 0;
+    if (reducedRef.current) {
+      s.yaw = nearestTo(s.yaw, homeYaw.current);
+      s.elevRaw = DEFAULT_ELEV;
+    } else if (!s.dragging) {
+      s.resetting = true;
+    }
+    invalidate();
+  }, [category, invalidate]);
 
   useEffect(() => {
     const el = gl.domElement;
@@ -116,7 +154,6 @@ export function Rig({
     el.addEventListener("pointerup", onEnd);
     el.addEventListener("pointercancel", onEnd);
 
-    const nearestTurn = () => Math.round(s.yaw / (Math.PI * 2)) * Math.PI * 2;
     (apiRef as { current: RigApi | null }).current = {
       rotate(dYaw, dElev) {
         s.resetting = false;
@@ -128,7 +165,7 @@ export function Rig({
       reset() {
         s.yawVel = 0;
         if (reducedRef.current) {
-          s.yaw = nearestTurn();
+          s.yaw = nearestTo(s.yaw, homeYaw.current);
           s.elevRaw = DEFAULT_ELEV;
         } else {
           s.resetting = true;
@@ -151,7 +188,7 @@ export function Rig({
     const dt = Math.min(delta, 0.05);
     if (!s.dragging) {
       if (s.resetting) {
-        const ty = Math.round(s.yaw / (Math.PI * 2)) * Math.PI * 2;
+        const ty = nearestTo(s.yaw, homeYaw.current);
         s.yaw = THREE.MathUtils.damp(s.yaw, ty, 9, dt);
         s.elevRaw = THREE.MathUtils.damp(s.elevRaw, DEFAULT_ELEV, 9, dt);
         if (Math.abs(s.yaw - ty) < 0.002 && Math.abs(s.elevRaw - DEFAULT_ELEV) < 0.002) {
