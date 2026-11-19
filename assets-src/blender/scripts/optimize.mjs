@@ -11,7 +11,7 @@ const tmp = path.join(here, "_tmp");
 fs.mkdirSync(tmp, { recursive: true });
 fs.mkdirSync(path.join(root, "optimized"), { recursive: true });
 const run = (...a) => execFileSync(process.execPath, [cli, ...a], { stdio: ["ignore", "pipe", "pipe"] });
-const cats = ["furniture", "plumbing", "electric", "repair", "other"];
+const cats = ["furniture", "plumbing", "electric", "repair", "other", "appliances"];
 const rows = [];
 for (const c of cats) {
   const src = path.join(root, "export", `${c}.glb`);
@@ -23,7 +23,7 @@ for (const c of cats) {
   run("dedup", t(3), t(4));
   run("meshopt", t(4), dst, "--level", "high");
   const v = run("validate", dst).toString().replace(/\x1b\[[0-9;]*m/g, "");
-  const issues = (v.match(/(\d+) errors?, (\d+) warnings?/) || []).slice(1).join("/") || "see log";
+  const issues = (v.includes("No errors found") ? "0" : "ERRORS") + " errors / " + (v.includes("No warnings found") ? "0" : "some") + " warnings";
   rows.push({ cat: c, raw_KB: (fs.statSync(src).size / 1024).toFixed(1), optimized_KB: (fs.statSync(dst).size / 1024).toFixed(1), validator_errors_warnings: issues });
 }
 console.table(rows);

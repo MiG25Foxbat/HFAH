@@ -1,4 +1,4 @@
-"""Shared helpers for the Ladno characters (Blender 5.x, headless-safe).
+"""Shared helpers for the Zaprosto characters (Blender 5.x, headless-safe).
 
 Conventions: Z up, characters face -Y, origin bottom-centre on z=0, ~1.6 units tall.
 Names are prefixed "<cat>." inside the .blend (Blender needs unique names) and the
@@ -35,7 +35,7 @@ def hexc(h, a=1.0):
 _MATS = {}
 
 
-def mat(name, hexcolor, rough=0.7, metal=0.0, spec=0.5, emit=None, emit_k=1.0, coat=0.0):
+def mat(name, hexcolor, rough=0.7, metal=0.0, spec=0.5, emit=None, emit_k=1.0, coat=0.0, alpha=None):
     key = (CAT[0], name)
     if key in _MATS:
         return _MATS[key]
@@ -51,6 +51,10 @@ def mat(name, hexcolor, rough=0.7, metal=0.0, spec=0.5, emit=None, emit_k=1.0, c
     if emit:
         b.inputs["Emission Color"].default_value = hexc(emit)
         b.inputs["Emission Strength"].default_value = emit_k
+    if alpha is not None:            # glTF alphaMode BLEND (plain metal-rough material, no transmission extension)
+        b.inputs["Alpha"].default_value = alpha
+        m.surface_render_method = "BLENDED"
+        m.use_backface_culling = False
     m.diffuse_color = hexc(hexcolor)
     _MATS[key] = m
     return m
@@ -330,6 +334,7 @@ def face_mats():
         mouth=mat("Mouth", "#2B1E1B", rough=0.45),
         cheek=mat("Cheek", "#F08F8A", rough=0.85),
         glove=mat("Glove", "#F6F2EA", rough=0.75),
+        palm=mat("GlovePalm", "#E4D8C6", rough=0.95),
     )
 
 
@@ -398,9 +403,91 @@ def build_face(rig, bvh, body_mat, *, eye_x=0.13, eye_z=1.0, eye=(0.047, 0.066, 
     return face
 
 
-def build_arm(side, rig, pivot, glove, tube_mat, L=0.32, r=0.03, rest_deg=20, hand=1.0, thumb_fwd=-0.012):
-    """Pivot empty Arm_<side> (R at -X = the character's own right, Blender convention)."""
+def _squircle(nx, nz, k=0.55):
+    """Radial stretch that turns the xz outline of a sphere into a rounded square (k = 0 circle .. 1 squircle)."""
+    n2 = math.hypot(nx, nz)
+    if n2 < 1e-6:
+        return 1.0
+    q = n2 / (nx ** 4 + nz ** 4) ** 0.25
+    return 1 + k * (q - 1)
+
+
+def hand_bm(s):
+    """Flat mitten: hangs along -Z from the wrist, back of the hand +Y (convex), palm -Y (shallow dish).
+    Returns (mitten bmesh, palm-pad bmesh). The pad is a thin disc that follows the dish (separate material)."""
+    from mathutils.bvhtree import BVHTree
+    hx, hz, zc = 0.056 * s, 0.058 * s, -0.066 * s
+    hyb, hyp, dish = 0.034 * s, 0.025 * s, 0.013 * s
+    bm = sphere_bm(1, 1, 1, 32, 20)
+    for v in bm.verts:
+        nx, ny, nz = v.co
+        q = _squircle(nx, nz)
+        x = nx * q * hx * (1 - 0.10 * nz)
+        z = zc + nz * q * hz
+        y = ny * (hyb if ny > 0 else hyp)
+        if ny < 0:
+            e = (x / hx) ** 2 + ((z - zc) / hz) ** 2
+            y += dish * max(0.0, 1 - e / 0.6) ** 2 * (-ny)
+        v.co = Vector((x, y, z))
+    # palm pad: polar grid raycast onto the dish
+    bvh = BVHTree.FromBMesh(bm)
+    pad = bmesh.new()
+    rings = [(0.0, 0.0030), (0.33, 0.0030), (0.62, 0.0026), (0.85, 0.0012), (1.0, -0.0025)]
+    rx, rz, segs = 0.56 * hx, 0.60 * hz, 28
+    R = []
+    for a, off in rings:
+        if a == 0.0:
+            n = 1
+        else:
+            n = segs
+        ring = []
+        for j in range(n):
+            t = 2 * pi * j / segs
+            x, z = a * rx * cos(t), zc + a * rz * sin(t)
+            loc, nrm, _, _ = bvh.ray_cast(Vector((x, -1.0, z)), Vector((0, 1, 0)))
+            assert loc is not None
+            ring.append(pad.verts.new(loc + Vector((0, -off * s, 0))))
+        R.append(ring)
+    for i in range(len(R) - 1):
+        A, B = R[i], R[i + 1]
+        for j in range(segs):
+            j1 = (j + 1) % segs
+            tri = [A[0], B[j], B[j1]] if len(A) == 1 else [A[j], B[j], B[j1], A[j1]]
+            try:
+                pad.faces.new(tri)
+            except ValueError:
+                pass
+    # make pad normals point to -Y (outwards on the palm side)
+    pad.normal_update()
+    if sum(f.normal.y for f in pad.faces) > 0:
+        bmesh.ops.reverse_faces(pad, faces=list(pad.faces))
+    return bm, pad
+
+
+def cuff_bm(s, r_tube, segs=32):
+    """Wrist cuff: rounded ring r = 0.043 s, flattened in Y like the mitten, open top whose hole is the arm tube
+    (hole circle blends into the flattened outline so the tube never pokes through the surface)."""
+    r_out, zb, zt, f = 0.043 * s, -0.030 * s, 0.016 * s, 0.010 * s
+    r_in = 0.97 * r_tube
+    ky = min(1.0, max(0.74, (r_tube + 0.012) / r_out))
+    prof = densify(fillet2d([(0, zb), (r_out, zb), (r_out, zt), (r_in, zt)], [0, f * 1.2, f, 0], 4), 0.006 * s)
+    bm = lathe_bm(prof, segs)
+    r_flat = r_out * 0.88
+    for v in bm.verts:
+        r = math.hypot(v.co.x, v.co.y)
+        t = max(0.0, min(1.0, (r - r_in) / max(r_flat - r_in, 1e-6)))
+        v.co.y *= 1 + (ky - 1) * t * t * (3 - 2 * t)
+    return bm
+
+
+def build_arm(side, rig, pivot, glove, tube_mat, L=0.32, r=0.03, rest_deg=20, hand=1.0):
+    """Pivot empty Arm_<side> (R at -X = the character's own right, Blender convention).
+    Hand_<side> (wrist pivot): Hand_*_Mitten (flat mitten, convex back), Hand_*_Palm (lighter palm pad in the dish),
+    Hand_*_Thumb (offset to the palm side, on the outer edge), Hand_*_Cuff (wrist cuff).
+    The palm looks to -Y (towards the viewer) at rest and while waving (the wave only rotates about Y)."""
     sgn = 1 if side == "R" else -1
+    out = -sgn                                   # outer side: R hangs at -X, so outwards is -X
+    fm = face_mats()
     arm = empty(f"Arm_{side}", rig, pivot, display="ARROWS", size=0.06)
     arm.rotation_mode = "XYZ"
     arm.rotation_euler = (0, sgn * radians(rest_deg), 0)
@@ -409,17 +496,15 @@ def build_arm(side, rig, pivot, glove, tube_mat, L=0.32, r=0.03, rest_deg=20, ha
     hd = empty(f"Hand_{side}", arm, (0, 0, -L), display="SPHERE", size=0.04)
     hd.rotation_mode = "XYZ"
     s = hand * HAND_SCALE
-    # mitten: slightly flattened rounded blob hanging below the wrist
-    bm = sphere_bm(0.052 * s, 0.040 * s, 0.066 * s, 24, 14)
-    bmesh.ops.translate(bm, vec=(0, 0, -0.048 * s), verts=bm.verts)
-    finish(bm, f"Hand_{side}_Mitten", glove, hd, normals=None)
-    # thumb: little capsule on the inner side pointing up/inward/forward
-    inner = -sgn  # R arm hangs at -X so inner is +X
-    path = [Vector((0, 0, 0)), Vector((0, 0, 0.05 * s))]
-    bm = tube_bm(path, 0.021 * s, ring=10)
-    bmesh.ops.transform(bm, matrix=Matrix.Rotation(inner * radians(-38), 4, "Y"), verts=bm.verts)
-    bmesh.ops.translate(bm, vec=(inner * 0.040 * s, thumb_fwd, -0.052 * s), verts=bm.verts)
-    finish(bm, f"Hand_{side}_Thumb", glove, hd, normals=None)
+    mit, pad = hand_bm(s)
+    finish(mit, f"Hand_{side}_Mitten", glove, hd, normals="area")
+    finish(pad, f"Hand_{side}_Palm", fm["palm"], hd, normals=None)
+    # thumb: capsule on the outer edge, shifted to the palm side (-Y), pointing down/outwards
+    path = [Vector((out * 0.038 * s, -0.012 * s, -0.034 * s)), Vector((out * 0.056 * s, -0.019 * s, -0.052 * s)),
+            Vector((out * 0.066 * s, -0.023 * s, -0.074 * s))]
+    finish(tube_bm(path, [0.020 * s, 0.019 * s, 0.016 * s], ring=12), f"Hand_{side}_Thumb", glove, hd, normals=None)
+    # cuff: short flattened ring at the wrist; its top is open (hole = arm tube) so the tube leaves it cleanly
+    finish(cuff_bm(s, 0.92 * r), f"Hand_{side}_Cuff", glove, hd, normals="area")
     return arm, hd
 
 

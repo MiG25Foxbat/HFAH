@@ -1,5 +1,5 @@
-"""Open ladno-characters.blend -> hand-clearance QA, raw GLB export, posters, previews.
-Run: blender -b ladno-characters.blend --python scripts/export_all.py
+"""Open zaprosto-characters.blend -> hand-clearance QA, raw GLB export, posters, previews.
+Run: blender -b zaprosto-characters.blend --python scripts/export_all.py
 Env: STEPS=qa,glb,posters (default all)
 """
 import sys, os, json, math
@@ -10,7 +10,7 @@ from mathutils.bvhtree import BVHTree
 import lib, studio
 
 BASE = lib.BASE
-CATS = ["furniture", "plumbing", "electric", "repair", "other"]
+CATS = ["furniture", "plumbing", "electric", "repair", "other", "appliances"]
 STAGE = Vector((0, 12, 0))
 STEPS = os.environ.get("STEPS", "qa,glb,posters").split(",")
 sc = bpy.context.scene
@@ -84,6 +84,37 @@ def clearance(cat):
     sc.frame_set(0)
     res["hand_min"] = round(res["hand_min"], 4)
     res["tube_min"] = round(res["tube_min"], 4)
+    return res
+
+
+# ---------------------------------------------------------------- toolbox: tools vs box/lid/latches and vs each other
+def tool_overlaps():
+    cat = "other"
+    meshes = objs_of(cat, "MESH")
+    groups = {}
+    for o in meshes:
+        short = o.name[len(cat) + 1:]
+        for tool in ("Drill", "Screwdriver", "Pliers", "Wrench", "Hammer"):
+            if short.startswith(tool):
+                groups.setdefault(tool, []).append(o)
+    box = [o for o in meshes if o.name[len(cat) + 1:] in ("Body", "Hinge", "Latch_L", "Latch_R", "CarryHandle")]
+    bb, _ = bvh_of(box)
+    res = {"vs_box_overlaps": {}, "vs_box_min_dist": {}, "tool_pairs": {}, "overlap_detail": {}}
+    trees = {t: bvh_of(objs) for t, objs in groups.items()}
+    for t, (bh, hv) in trees.items():
+        res["vs_box_overlaps"][t] = len(bh.overlap(bb))
+        for part in box:
+            for tm in groups[t]:
+                n = len(bvh_of([tm])[0].overlap(bvh_of([part])[0]))
+                if n:
+                    res["overlap_detail"][f"{tm.name}-{part.name}"] = n
+        res["vs_box_min_dist"][t] = round(min(bb.find_nearest(p)[3] for p in hv), 4)
+    names = list(trees)
+    for i, a in enumerate(names):
+        for b in names[i + 1:]:
+            ov = len(trees[a][0].overlap(trees[b][0]))
+            d = min(trees[b][0].find_nearest(p)[3] for p in trees[a][1])
+            res["tool_pairs"][f"{a}-{b}"] = dict(overlaps=ov, min_dist=round(d, 4))
     return res
 
 
@@ -176,8 +207,8 @@ def make_blob():
     return pl
 
 
-EYE_Z = {"furniture": 1.15, "plumbing": 0.69, "electric": 1.41, "repair": 1.375, "other": 0.60}
-BLOB_R = {"furniture": 0.62, "plumbing": 0.60, "electric": 0.55, "repair": 0.5, "other": 0.68}
+EYE_Z = {"furniture": 1.15, "plumbing": 0.69, "electric": 1.41, "repair": 1.375, "other": 0.60, "appliances": 1.40}
+BLOB_R = {"furniture": 0.62, "plumbing": 0.60, "electric": 0.55, "repair": 0.5, "other": 0.68, "appliances": 0.72}
 
 
 def render_cat(cat, blob, posters_dir, prev_dir):
@@ -203,6 +234,16 @@ def render_cat(cat, blob, posters_dir, prev_dir):
     studio.aim_camera(cam, STAGE + Vector((0, 0, EYE_Z[cat])), -12, 4, 2.2)
     sc.frame_set(3)
     studio.render(os.path.join(prev_dir, f"{cat}_blink_f3_closeup.png"), res=640)
+    # hands: rest pose (right hand, front view) and mid-wave (palm towards the viewer)
+    sc.frame_set(0)
+    bpy.context.view_layer.update()
+    hand = bpy.data.objects[f"{cat}.Hand_R"]
+    studio.aim_camera(cam, hand.matrix_world.translation.copy(), 0, 4, 1.25)
+    studio.render(os.path.join(prev_dir, f"{cat}_hand_rest_closeup.png"), res=480)
+    sc.frame_set(40)
+    bpy.context.view_layer.update()
+    studio.aim_camera(cam, hand.matrix_world.translation.copy(), -12, 4, 1.25)
+    studio.render(os.path.join(prev_dir, f"{cat}_hand_wave_closeup.png"), res=480)
     sc.frame_set(0)
     root.location = old
 
@@ -217,6 +258,8 @@ def main():
             report[cat] = clearance(cat)
             root.location = old
             print("CLEARANCE", cat, report[cat])
+        report["other_tools"] = tool_overlaps()
+        print("TOOLS", report["other_tools"])
         os.makedirs(os.path.join(BASE, "qa"), exist_ok=True)
         with open(os.path.join(BASE, "qa", "clearance.json"), "w") as f:
             json.dump(report, f, indent=1)
@@ -237,4 +280,5 @@ def main():
                 o.hide_render = False
 
 
-main()
+if __name__ == "__main__":
+    main()

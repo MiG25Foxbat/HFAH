@@ -1,37 +1,103 @@
 {
  "furniture": {
-  "hand_min": 0.0591,
-  "hand_min_at": "Idle+Wave f80 hand_L",
+  "hand_min": 0.0415,
+  "hand_min_at": "Idle+Wave f46 hand_R",
   "tube_min": 0.0205,
   "overlaps": 0,
   "samples": 148
  },
  "plumbing": {
-  "hand_min": 0.0396,
+  "hand_min": 0.0297,
   "hand_min_at": "Idle+Wave f74 hand_L",
   "tube_min": 0.0131,
   "overlaps": 0,
   "samples": 148
  },
  "electric": {
-  "hand_min": 0.1315,
+  "hand_min": 0.0199,
   "hand_min_at": "Idle+Wave f46 hand_R",
-  "tube_min": 0.0538,
+  "tube_min": 0.0848,
   "overlaps": 0,
   "samples": 148
  },
  "repair": {
-  "hand_min": 0.0465,
+  "hand_min": 0.031,
   "hand_min_at": "Idle+Wave f46 hand_R",
   "tube_min": 0.0048,
   "overlaps": 0,
   "samples": 148
  },
  "other": {
-  "hand_min": 0.0425,
-  "hand_min_at": "Idle+Wave f70 hand_L",
+  "hand_min": 0.0318,
+  "hand_min_at": "Idle+Wave f46 hand_R",
   "tube_min": 0.0065,
   "overlaps": 0,
   "samples": 148
+ },
+ "appliances": {
+  "hand_min": 0.0389,
+  "hand_min_at": "Idle+Wave f46 hand_R",
+  "tube_min": 0.0315,
+  "overlaps": 0,
+  "samples": 148
+ },
+ "other_tools": {
+  "vs_box_overlaps": {
+   "Drill": 0,
+   "Hammer": 0,
+   "Pliers": 0,
+   "Screwdriver": 0,
+   "Wrench": 0
+  },
+  "vs_box_min_dist": {
+   "Drill": 0.0138,
+   "Hammer": 0.0166,
+   "Pliers": 0.0361,
+   "Screwdriver": 0.0822,
+   "Wrench": 0.0238
+  },
+  "tool_pairs": {
+   "Drill-Hammer": {
+    "overlaps": 0,
+    "min_dist": 0.5563
+   },
+   "Drill-Pliers": {
+    "overlaps": 0,
+    "min_dist": 0.2189
+   },
+   "Drill-Screwdriver": {
+    "overlaps": 0,
+    "min_dist": 0.1243
+   },
+   "Drill-Wrench": {
+    "overlaps": 0,
+    "min_dist": 0.4547
+   },
+   "Hammer-Pliers": {
+    "overlaps": 0,
+    "min_dist": 0.1076
+   },
+   "Hammer-Screwdriver": {
+    "overlaps": 0,
+    "min_dist": 0.3408
+   },
+   "Hammer-Wrench": {
+    "overlaps": 0,
+    "min_dist": 0.0339
+   },
+   "Pliers-Screwdriver": {
+    "overlaps": 0,
+    "min_dist": 0.0262
+   },
+   "Pliers-Wrench": {
+    "overlaps": 0,
+    "min_dist": 0.0283
+   },
+   "Screwdriver-Wrench": {
+    "overlaps": 0,
+    "min_dist": 0.2954
+   }
+  },
+  "overlap_detail": {}
  }
 }

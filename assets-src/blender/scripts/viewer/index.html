@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><title>Ladno GLB check</title>
+<html lang="en"><head><meta charset="utf-8"><title>Zaprosto GLB check</title>
 <style>html,body{margin:0;background:#EEF0EB;font:12px system-ui}canvas{display:block}#log{position:fixed;left:8px;top:8px;max-width:60vw;white-space:pre;color:#1C231F;background:#fffc;padding:4px}</style>
 <script type="importmap">{"imports":{"three":"../node_modules/three/build/three.module.js","three/addons/":"../node_modules/three/examples/jsm/"}}</script>
 </head><body><div id="log"></div>
@@ -13,7 +13,10 @@ const dir = q.get("dir") || "optimized";
 const useEnv = q.get("env") === "1";
 const waveT = q.has("t") ? parseFloat(q.get("t")) : null;      // freeze Wave at t seconds
 const blinkNow = q.get("blink") === "1";
-const cats = ["furniture", "plumbing", "electric", "repair", "other"];
+const all = ["furniture", "plumbing", "electric", "repair", "other", "appliances"];
+const only = q.get("only");                                       // ?only=plumbing -> one large character
+const yaw = q.has("yaw") ? parseFloat(q.get("yaw")) : -0.45;     // the app shows plumbing at about -0.7 rad
+const cats = only ? [only] : all;
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
 renderer.setPixelRatio(1); renderer.setSize(innerWidth, innerHeight);
 renderer.toneMapping = THREE.NeutralToneMapping;
@@ -27,8 +30,8 @@ const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
 const mixers = [], report = {};
 for (let i = 0; i < cats.length; i++) {
   const g = await loader.loadAsync(`../../${dir}/${cats[i]}.glb`);
-  const m = g.scene; m.position.x = (i - 2) * 1.55; scene.add(m);
-  m.rotation.y = -0.45;
+  const m = g.scene; m.position.x = only ? 0 : (i - 2.5) * 1.55; scene.add(m);
+  m.rotation.y = yaw;
   const mx = new THREE.AnimationMixer(m); mixers.push(mx);
   const names = g.animations.map(a => `${a.name}:${a.duration.toFixed(2)}`);
   const get = n => m.getObjectByName(n);
@@ -42,7 +45,7 @@ for (let i = 0; i < cats.length; i++) {
 }
 if (!q.has("nolog")) document.getElementById("log").textContent = JSON.stringify(report, null, 1);
 window.__report = report;
-cam.position.set(0, 1.25, +(q.get("z") || 8.2)); cam.lookAt(0, 0.8, 0);
+cam.position.set(0, 1.25, +(q.get("z") || (only ? 5.2 : 9.4))); cam.lookAt(0, 0.8, 0);
 const timer = new THREE.Timer(); timer.connect(document);
 let t0 = 0;
 renderer.setAnimationLoop(() => { timer.update(); const d = timer.getDelta(); mixers.forEach(m => m.update(waveT === null ? d : 0)); renderer.render(scene, cam); });

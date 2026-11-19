@@ -8,20 +8,20 @@
   "body_materials": [
    "furniture.Wood"
   ],
-  "meshes": 19,
-  "tris": 4544
+  "meshes": 23,
+  "tris": 6772
  },
  "plumbing": {
   "uv": {
-   "coverage_pct": 51.8,
+   "coverage_pct": 48.9,
    "overlap_px": 0,
    "out_of_range_tris": 0
   },
   "body_materials": [
    "plumbing.Chrome"
   ],
-  "meshes": 18,
-  "tris": 9974
+  "meshes": 23,
+  "tris": 14074
  },
  "electric": {
   "uv": {
@@ -32,8 +32,8 @@
   "body_materials": [
    "electric.Shade"
   ],
-  "meshes": 20,
-  "tris": 9704
+  "meshes": 24,
+  "tris": 11996
  },
  "repair": {
   "uv": {
@@ -44,8 +44,8 @@
   "body_materials": [
    "repair.Mint"
   ],
-  "meshes": 19,
-  "tris": 13148
+  "meshes": 23,
+  "tris": 15376
  },
  "other": {
   "uv": {
@@ -56,7 +56,19 @@
   "body_materials": [
    "other.Blue"
   ],
-  "meshes": 24,
-  "tris": 6290
+  "meshes": 36,
+  "tris": 14596
+ },
+ "appliances": {
+  "uv": {
+   "coverage_pct": 72.3,
+   "overlap_px": 0,
+   "out_of_range_tris": 0
+  },
+  "body_materials": [
+   "appliances.Lavender"
+  ],
+  "meshes": 33,
+  "tris": 10624
  }
 }

@@ -8,7 +8,7 @@ const io = new NodeIO().registerExtensions(ALL_EXTENSIONS).registerDependencies(
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const dir = path.join(root, process.argv[2] || "optimized");
 const rows = [];
-for (const c of ["furniture", "plumbing", "electric", "repair", "other"]) {
+for (const c of ["furniture", "plumbing", "electric", "repair", "other", "appliances"]) {
   const f = path.join(dir, c + ".glb"); const d = await io.read(f); const r = d.getRoot();
   let tris = 0, verts = 0;
   for (const m of r.listMeshes()) for (const p of m.listPrimitives()) { tris += (p.getIndices()?.getCount() ?? 0) / 3; verts += p.getAttribute("POSITION").getCount(); }

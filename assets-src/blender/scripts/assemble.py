@@ -1,4 +1,4 @@
-"""Build all five characters, unwrap Body, create Idle/Wave/Blink NLA clips, lay out and save the .blend.
+"""Build all six characters, unwrap Body, create Idle/Wave/Blink NLA clips, lay out and save the .blend.
 Run: blender -b --python scripts/assemble.py
 """
 import sys, os, json, math
@@ -9,12 +9,14 @@ from mathutils import Vector
 import lib, chars, studio
 
 ORDER = [("furniture", "Furniture"), ("plumbing", "Plumbing"), ("electric", "Electric"),
-         ("repair", "Repair"), ("other", "Other")]
-LAYOUT_X = {"furniture": -5.0, "plumbing": -2.5, "electric": 0.0, "repair": 2.5, "other": 5.0}
+         ("repair", "Repair"), ("other", "Other"), ("appliances", "Appliances")]
+LAYOUT_X = {"furniture": -6.25, "plumbing": -3.75, "electric": -1.25, "repair": 1.25, "other": 3.75, "appliances": 6.25}
 STAGE = Vector((0, 12, 0))      # poster stage (studio lights/camera live here)
-OUT = os.path.join(lib.BASE, "ladno-characters.blend")
+OUT = os.path.join(lib.BASE, "zaprosto-characters.blend")
 
 FPS = lib.FPS                    # 50
+# per-character Wave overrides: the lamp's arms start under the shade, so it waves lower (arm angle from hanging, deg)
+WAVE = {"electric": dict(up=102, bias=0.25)}
 IDLE_F, WAVE_F, BLINK_F = 150, 80, 9     # 3.0 s, 1.6 s, 0.18 s
 
 
@@ -69,13 +71,16 @@ def animate(cat, ch):
     push(rig, "Idle")
 
     # ---- Wave: 1.6 s, right arm (character's own right, viewer's left) up, wrist waves ~2.5x, back to rest
-    up = radians(152)
+    w = WAVE.get(cat, {})
+    up = radians(w.get("up", 152))
+    bias = w.get("bias", 0.0)         # constant wrist bend added to the wave (rad): hand points more upwards
     begin(ar, cat, "Wave")
     for f, v in ((0, rest_r), (16, up), (60, up), (80, rest_r)):
         key(ar, "rotation_euler", 1, f, v)
     push(ar, "Wave")
     begin(hr, cat, "Wave")
-    for f, v in ((0, 0.0), (16, 0.0), (22, -0.55), (30, 0.55), (38, -0.55), (46, 0.55), (54, -0.35), (60, 0.0), (80, 0.0)):
+    for f, v in ((0, 0.0), (16, bias), (22, bias - 0.55), (30, bias + 0.55), (38, bias - 0.55), (46, bias + 0.55),
+                 (54, bias - 0.35), (60, bias), (80, 0.0)):
         key(hr, "rotation_euler", 1, f, v)
     push(hr, "Wave")
 
@@ -124,4 +129,5 @@ def main():
     print("SAVED", OUT)
 
 
-main()
+if __name__ == "__main__":
+    main()
