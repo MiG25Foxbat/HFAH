@@ -15,7 +15,7 @@ BASE = os.environ.get("BASE_URL", "http://127.0.0.1:3103/dev/stage")
 SHOTS = os.path.join(os.path.dirname(__file__), "screenshots")
 os.makedirs(SHOTS, exist_ok=True)
 GL_ARGS = ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"]
-CATS = ["furniture", "plumbing", "electrics", "repair", "other"]
+CATS = ["furniture", "plumbing", "electrics", "repair", "appliances", "other"]
 IGNORED = ("THREE.Clock", "KHR_parallel_shader_compile", "React DevTools", "[HMR]", "Download the React")
 
 results = []
@@ -269,7 +269,8 @@ def run():
             }"""
         )
         print("METRICS", json.dumps({"perCharacter": metrics, "rotateTiming(software GL)": timing}, ensure_ascii=False))
-        check("draw calls per frame reasonable (<= 60)", all(m["calls"] <= 60 for m in metrics.values()), str({k: v["calls"] for k, v in metrics.items()}))
+        # было <= 60; ящик с инструментами (пассатижи, ключ, шуруповёрт, молоток с гвоздодёром) и стиральная машина дают 70–80 вызовов вместе с проходом теней
+        check("draw calls per frame reasonable (<= 90)", all(m["calls"] <= 90 for m in metrics.values()), str({k: v["calls"] for k, v in metrics.items()}))
 
         # 2h. Живая смена темы без перезагрузки.
         page.evaluate("document.documentElement.setAttribute('data-theme', 'dark')")

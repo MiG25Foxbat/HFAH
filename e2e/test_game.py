@@ -30,6 +30,7 @@ CATEGORY_SERVICE = {
     "plumbing": ("plumb-accessories", {}),
     "electrics": ("el-appliance", {}),
     "repair": ("rep-baseboard", {}),
+    "appliances": ("plumb-washer", {}),
     "other": ("other-hourly", {}),
 }
 CODE_RE = re.compile(r"^LAD-[A-Z0-9]{4}-[A-Z0-9]{4}$")
@@ -459,7 +460,7 @@ def test_claim_errors(browser, api):
 
 
 def test_categories(browser, api):
-    """Все пять моделей: игра запускается, пятна лежат на поверхности, скриншоты для осмотра."""
+    """Все шесть моделей: игра запускается, пятна лежат на поверхности, скриншоты для осмотра."""
     for cat in CATEGORY_SERVICE:
         for scheme in ("light", "dark"):
             ctx, page, logs = new_page(browser, color_scheme=scheme, **MOBILE)

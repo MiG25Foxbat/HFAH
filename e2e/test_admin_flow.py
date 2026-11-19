@@ -3,7 +3,7 @@ E2E кабинета владельца (Python Playwright). Запуск при
 
     BASE_URL=http://127.0.0.1:3102 python e2e/test_admin_flow.py
 
-Пароль владельца по умолчанию — демо `ladno-demo-2026` (OWNER_PASSWORD), БД — та, на которой запущен сервер.
+Пароль владельца по умолчанию — демо `zaprosto-demo-2026` (OWNER_PASSWORD), БД — та, на которой запущен сервер.
 Скрипт создаёт вымышленные заявки через публичный API, сам их удаляет и возвращает прайс и пароль как были.
 Скриншоты — e2e/screenshots/admin-*.png. Код возврата 1, если хоть одна проверка не прошла.
 """
@@ -20,7 +20,7 @@ from PIL import Image
 from playwright.sync_api import sync_playwright
 
 BASE = os.environ.get("BASE_URL", "http://127.0.0.1:3102").rstrip("/")
-PASSWORD = os.environ.get("OWNER_PASSWORD", "ladno-demo-2026")
+PASSWORD = os.environ.get("OWNER_PASSWORD", "zaprosto-demo-2026")
 NEW_PASSWORD = "e2e-new-password-2026"
 SHOTS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "screenshots")
 os.makedirs(SHOTS, exist_ok=True)
@@ -292,7 +292,7 @@ def run():
         op.goto(f"{BASE}/admin/tariffs")
         row_t = op.locator("#cat-furniture li", has_text="Сборка шкафа").first
         row_t.wait_for()
-        before = norm(row_t.inner_text())
+        before = norm(row_t.text_content() or "")  # text_content: строки прайса с content-visibility вне экрана не имеют innerText
         m = re.search(r"([\d ]+) ₽ за шт", before)
         old_price = re.sub(r"\D", "", m.group(1)) if m else "3500"
         check("Памятка:" in before and "Шуруповёрт" in before, "тарифы: у работы видна памятка", before)
@@ -342,6 +342,248 @@ def run():
         row_t.get_by_label("Цена за единицу").fill(old_price)
         row_t.get_by_role("button", name="Сохранить").click()
         row_t.get_by_text("Сохранено.").first.wait_for(timeout=10000)
+
+        # ---------- редактор каталога: категории и работы ----------
+        CAT = f"Окна E2E-{RUN}"
+        CAT2 = f"Двери E2E-{RUN}"
+        CAT_ID = f"okna-e2e-{RUN}"
+        W1 = f"Первая работа E2E-{RUN}"
+        W2 = f"Вторая работа E2E-{RUN}"
+        pub = browser.new_context(**ctx_args)
+        pp = pub.new_page()
+
+        def titles(sel):
+            # textContent, а не innerText: строки прайса вне экрана пропускаются (content-visibility) и дают пустой innerText
+            return [norm(t).strip() for t in op.evaluate("s => [...document.querySelectorAll(s)].map(e => e.textContent)", sel)]
+
+        def wait_first(sec_sel, text):
+            op.wait_for_function("a => (document.querySelector(a.s + ' ul > li')?.innerText || '').includes(a.t)", arg={"s": sec_sel, "t": text}, timeout=10000)
+
+        op.goto(f"{BASE}/admin/tariffs")
+        cats = op.locator("#categories")
+        cats.wait_for()
+        ctext = norm(cats.inner_text())
+        check(all(t in ctext for t in ["Мебель", "Сантехника", "Электрика", "Ремонт", "Бытовая техника", "Другое"]), "каталог: в списке шесть категорий", ctext[:300])
+        check(ctext.index("Ремонт") < ctext.index("Бытовая техника") < ctext.index("Другое"), "каталог: порядок категорий — «Бытовая техника» перед «Другое»")
+        check("Персонаж: Стиральная машина" in ctext, "каталог: у «Бытовой техники» персонаж — стиральная машина", ctext[:400])
+        check(op.locator("#cat-appliances").count() == 1 and "Подключение стиральной машины" in norm(op.locator("#cat-appliances").text_content() or ""), "каталог: у «Бытовой техники» есть свои работы")
+
+        # создать категорию с выбранным цветом и персонажем
+        cats.get_by_role("button", name="Добавить категорию").click()
+        cats.get_by_label("Название").fill(CAT)
+        cats.locator("label[title='Бирюза']").click()
+        cats.get_by_label("Персонаж").select_option("repair")
+        cats.get_by_role("button", name="Создать категорию").click()
+        cats.get_by_text("Категория создана").first.wait_for(timeout=10000)
+        li_cat = cats.locator("li", has_text=CAT).first
+        li_cat.wait_for(timeout=10000)
+        check("Персонаж: Валик" in norm(li_cat.inner_text()), "каталог: новая категория с персонажем «Валик»", norm(li_cat.inner_text()))
+        dot = li_cat.locator("span[aria-hidden]").first.evaluate("e => getComputedStyle(e).backgroundColor")
+        check(dot == "rgb(91, 181, 200)", "каталог: цвет категории — выбранный образец «Бирюза»", dot)
+        sec = op.locator(f"#cat-{CAT_ID}")
+        sec.wait_for(timeout=10000)
+        check("В категории пока нет работ" in norm(sec.inner_text()), "каталог: новая категория пуста, есть «Добавить работу»")
+
+        # добавить две работы
+        sec.get_by_role("button", name=re.compile("Добавить работу в категорию")).click()
+        sec.get_by_label("Название").fill("")
+        sec.get_by_role("button", name="Добавить работу", exact=True).click()
+        check(sec.get_by_text("Название — не короче 2 символов").first.is_visible(), "каталог: пустое название работы — ошибка у поля")
+        sec.get_by_label("Название").fill(W1)
+        sec.get_by_label("Цена за единицу").fill("1234")
+        sec.get_by_label("Норма времени").fill("30")
+        sec.get_by_label("Подходит для офиса").check()
+        sec.get_by_role("button", name="Добавить работу", exact=True).click()
+        sec.get_by_text("добавлена в конец категории").first.wait_for(timeout=10000)
+        row1 = sec.locator("li", has_text=W1).first
+        row1.wait_for(timeout=10000)
+        t1 = norm(row1.inner_text())
+        check("1 234 ₽ за шт" in t1 and "Для офиса" in t1, "каталог: добавленная работа с ценой и отметкой «Для офиса»", t1)
+        sec.get_by_role("button", name=re.compile("Добавить работу в категорию")).click()
+        sec.get_by_label("Название").fill(W2)
+        sec.get_by_label("Как считается цена").select_option("manual")
+        check(sec.get_by_label("Цена за единицу").count() == 0, "каталог: у работы «по фото» поля цены нет")
+        sec.get_by_role("button", name="Добавить работу", exact=True).click()
+        sec.locator("li", has_text=W2).first.wait_for(timeout=10000)
+        check("по фото" in norm(sec.locator("li", has_text=W2).first.inner_text()), "каталог: работа «по фото» добавлена")
+        check(titles(f"#cat-{CAT_ID} ul > li p.font-medium")[0].startswith(W1), "каталог: новые работы встают в конец категории по порядку добавления")
+
+        # порядок: вторая работа выше первой (кнопкой и с клавиатуры)
+        up = sec.get_by_role("button", name=f"Выше: {W2}")
+        up.focus()
+        op.keyboard.press("Enter")
+        wait_first(f"#cat-{CAT_ID}", W2)
+        check(True, "каталог: «Выше» (с клавиатуры) поменял работы местами")
+        op.wait_for_timeout(300)
+        check(op.evaluate("document.activeElement?.getAttribute('aria-label')") == f"Выше: {W2}", "каталог: после перестановки фокус остался на той же кнопке", str(op.evaluate("document.activeElement?.getAttribute('aria-label')")))
+        sec.get_by_role("button", name=f"Ниже: {W2}").click()
+        wait_first(f"#cat-{CAT_ID}", W1)
+        op.wait_for_timeout(500)
+        sec.get_by_role("button", name=f"Выше: {W2}").click()
+        wait_first(f"#cat-{CAT_ID}", W2)
+        check(True, "каталог: «Ниже» вернул порядок, «Выше» поставил снова")
+        op.wait_for_timeout(500)
+
+        # скрыть первую работу: на сайте её нет, у владельца помечена
+        sec.get_by_role("button", name=f"Скрыть: {W1}").click()
+        sec.locator("li", has_text=W1).get_by_text("Скрыта от клиентов", exact=True).wait_for(timeout=10000)
+        pp.goto(f"{BASE}/uslugi", wait_until="networkidle")
+        ptext = norm(pp.locator("main").inner_text())
+        check(CAT in ptext and W2 in ptext and W1 not in ptext, "каталог: на сайте видна категория и вторая работа, скрытой первой нет", ptext[-300:])
+
+        # переименовать категорию и сменить персонажа; id остаётся прежним
+        li_cat = cats.locator("li", has_text=CAT).first
+        li_cat.get_by_role("button", name=re.compile("Изменить категорию")).click()
+        li_cat.get_by_label("Название").fill(CAT2)
+        li_cat.get_by_label("Персонаж").select_option("appliances")
+        li_cat.get_by_role("button", name="Сохранить", exact=True).click()
+        cats.locator("li", has_text=CAT2).first.get_by_text("Сохранено.").wait_for(timeout=10000)
+        check("Персонаж: Стиральная машина" in norm(cats.locator("li", has_text=CAT2).first.inner_text()), "каталог: категория переименована, персонаж сменён")
+        check(op.locator(f"#cat-{CAT_ID}").count() == 1, "каталог: после переименования id категории прежний")
+
+        # порядок категорий: на одну позицию выше (поменялась с «Другое»)
+        before = norm(cats.inner_text())
+        cats.get_by_role("button", name=f"Выше: {CAT2}").click()
+        op.wait_for_function("a => document.querySelector('#categories').innerText.replace(/\\u00a0/g,' ').indexOf(a.t) < document.querySelector('#categories').innerText.replace(/\\u00a0/g,' ').indexOf('Другое')", arg={"t": CAT2}, timeout=10000)
+        check(before.index("Другое") < before.index(CAT2) and norm(cats.inner_text()).index(CAT2) < norm(cats.inner_text()).index("Другое"), "каталог: категория поднялась выше «Другое»")
+
+        # скрыть и показать категорию целиком
+        cats.get_by_role("button", name=f"Скрыть категорию: {CAT2}").click()
+        cats.locator("li", has_text=CAT2).get_by_text("Скрыта от клиентов", exact=True).wait_for(timeout=10000)
+        pp.goto(f"{BASE}/", wait_until="networkidle")
+        check(pp.get_by_role("button", name=CAT2).count() == 0, "каталог: скрытая категория пропала с главной сайта")
+        cats.get_by_role("button", name=f"Показать категорию: {CAT2}").click()
+        cats.locator("li", has_text=CAT2).get_by_text("Скрыта от клиентов", exact=True).wait_for(state="detached", timeout=10000)
+        pp.goto(f"{BASE}/", wait_until="networkidle")
+        check(pp.get_by_role("button", name=CAT2).count() == 1, "каталог: показанная категория снова на главной сайта")
+
+        # телефон 360 px: редактор не даёт горизонтальной прокрутки, цели касания не меньше 44 px
+        mob360 = browser.new_context(**ctx_args, viewport={"width": 360, "height": 800}, storage_state=owner_state, is_mobile=True, has_touch=True)
+        m3 = mob360.new_page()
+        m3.goto(f"{BASE}/admin/tariffs")
+        m3.locator("#categories").wait_for()
+        m3.locator("#categories li", has_text=CAT2).first.get_by_role("button", name=re.compile("Изменить категорию")).click()
+        m3.locator(f"#cat-{CAT_ID} li", has_text=W2).first.get_by_role("button", name=re.compile("^Изменить")).click()
+        m3.get_by_role("button", name=re.compile("Добавить работу в категорию")).first.click()
+        m3.wait_for_timeout(300)
+        over = m3.evaluate("document.documentElement.scrollWidth - document.documentElement.clientWidth")
+        check(over <= 0, "телефон 360 px: редактор каталога без горизонтальной прокрутки", str(over))
+        small = m3.evaluate(
+            """() => [...document.querySelectorAll('#categories button, #categories label[title], #categories select, #categories input[type=text], form button, form select, form input[type=text], form textarea')]
+                 .map(e => { const r = e.getBoundingClientRect(); return [e.getAttribute('aria-label') || e.title || e.textContent.trim().slice(0, 24), Math.round(r.width), Math.round(r.height)]; })
+                 .filter(([, w, h]) => w > 0 && h > 0 && (w < 44 || h < 44))"""
+        )
+        check(not small, "телефон 360 px: все кнопки и поля редактора не меньше 44 px", str(small[:5]))
+        shot(m3, "catalog-mobile-360", full=False)
+        mob360.close()
+
+        # перенос работы в другую категорию и удаление с подтверждением
+        row2 = sec.locator("li", has_text=W2).first
+        row2.get_by_role("button", name=re.compile("^Изменить")).click()
+        row2.get_by_label("Название").fill(W2 + " (правка)")
+        row2.get_by_label("Категория").select_option("furniture")
+        row2.get_by_role("button", name="Сохранить", exact=True).click()
+        fur = op.locator("#cat-furniture")
+        fur.locator("li", has_text=W2 + " (правка)").first.wait_for(timeout=10000)
+        check(sec.locator("li", has_text=W2).count() == 0, "каталог: работа перенесена в «Мебель» и переименована")
+        check(titles("#cat-furniture ul > li p.font-medium")[-1].startswith(W2), "каталог: перенесённая работа стоит в конце новой категории")
+        fur.get_by_role("button", name=f"Удалить: {W2} (правка)").click()
+        dlg = op.get_by_role("dialog")
+        dlg.wait_for()
+        check("Прошлые заявки не изменятся" in norm(dlg.inner_text()), "каталог: окно удаления работы говорит, что старые заявки не меняются")
+        dlg.get_by_role("button", name="Отмена").click()
+        check(fur.locator("li", has_text=W2).count() == 1, "каталог: «Отмена» не удаляет работу")
+        fur.get_by_role("button", name=f"Удалить: {W2} (правка)").click()
+        op.get_by_role("dialog").get_by_role("button", name="Удалить работу").click()
+        fur.locator("li", has_text=W2).first.wait_for(state="detached", timeout=10000)
+        check(True, "каталог: работа удалена после подтверждения")
+
+        # пустую категорию удалить можно, непустую нельзя
+        check(cats.get_by_role("button", name=f"Удалить категорию: {CAT2}").count() == 0, "каталог: у категории с работами кнопки «Удалить» нет")
+        sec.get_by_role("button", name=f"Удалить: {W1}").click()
+        op.get_by_role("dialog").get_by_role("button", name="Удалить работу").click()
+        sec.locator("li", has_text=W1).first.wait_for(state="detached", timeout=10000)
+        cats.get_by_role("button", name=f"Удалить категорию: {CAT2}").wait_for(timeout=10000)
+        cats.get_by_role("button", name=f"Удалить категорию: {CAT2}").click()
+        op.get_by_role("dialog").get_by_role("button", name="Удалить категорию").click()
+        cats.locator("li", has_text=CAT2).first.wait_for(state="detached", timeout=10000)
+        check(op.locator(f"#cat-{CAT_ID}").count() == 0, "каталог: пустая категория удалена вместе с разделом")
+        pub.close()
+
+        # ---------- организации ----------
+        ORG = f"ООО «Ромашка-{RUN}»"
+        NAME_O = f"Контакт E2E-{RUN}"
+        org_order = create_order(
+            oapi, NAME_O, [{"serviceId": "el-socket", "qty": 1, "complex": False, "dismantle": False}], [],
+            clientType="organization", orgName=ORG, orgInn="7707 083893", wantsInvoice=True,
+        )
+        pub_order = oapi.get(f"{BASE}/api/orders/{org_order['token']}").json()
+        check(pub_order.get("clientType") == "organization" and pub_order.get("orgName") == ORG, "организация: публичная заявка называет организацию")
+        check("7707083893" not in json.dumps(pub_order) and "+7903" not in json.dumps(pub_order), "организация: ИНН и телефон в публичный JSON не попадают")
+        check(pub_order["lines"][0].get("character") == "electrics" and pub_order["lines"][0].get("categoryTitle") == "Электрика", "заявка: строка хранит персонажа и название категории", json.dumps(pub_order["lines"][0], ensure_ascii=False))
+        op.goto(f"{BASE}/admin")
+        op.get_by_label("Поиск").fill(NAME_O)
+        row_o = op.get_by_role("link", name=re.compile(re.escape(NAME_O))).first
+        row_o.wait_for(timeout=10000)
+        rtext = norm(row_o.inner_text())
+        check("Организация" in rtext and ORG in rtext, "заявки: в списке отметка «Организация» и название", rtext)
+        op.get_by_label("Поиск").fill("")
+        op.wait_for_timeout(900)  # поиск уходит в адрес с задержкой: ссылка фильтра строится от адреса
+        op.get_by_role("link", name="Только организации").click()
+        op.wait_for_url(re.compile(r"org=1"), timeout=10000)
+        op.get_by_role("link", name=re.compile(re.escape(NAME_O))).first.wait_for(timeout=10000)
+        check(op.get_by_role("link", name=re.compile(re.escape(NAME_A))).count() == 0, "заявки: фильтр «Только организации» скрывает заявки частных лиц")
+        op.get_by_label("Поиск").fill("7707083893")
+        op.get_by_role("link", name=re.compile(re.escape(NAME_O))).first.wait_for(timeout=10000)
+        check(True, "заявки: поиск находит организацию по ИНН")
+        op.get_by_role("link", name=re.compile(re.escape(NAME_O))).first.click()
+        op.get_by_role("heading", name=re.compile(r"Заявка №")).wait_for()
+        otext = norm(op.locator("main").inner_text())
+        check("Организация" in otext and ORG in otext and "7707083893" in otext and "Нужен счёт и закрывающие документы" in otext and "Адрес офиса" in otext, "заявки: в карточке название, ИНН, счёт и «Адрес офиса»", otext[:400])
+        shot(op, "order-org-desktop")
+        org_href = op.url.replace(BASE, "")
+
+        # владелец выключает организации и оплату по счёту
+        op.goto(f"{BASE}/admin/company")
+        op.get_by_label("Работаем с организациями").wait_for()
+        orgs_was, inv_was = op.get_by_label("Работаем с организациями").is_checked(), op.get_by_label("Оплата по счёту").is_checked()
+        note_was = op.get_by_label("Условия для организаций").input_value()
+        check(orgs_was and inv_was and "по договору" in note_was, "компания: в демо организации и счёт включены, есть текст условий", note_was)
+        shot(op, "company-orgs-desktop")
+        op.get_by_label("Оплата по счёту").uncheck()
+        op.get_by_role("button", name="Сохранить", exact=True).click()
+        op.get_by_text("Сохранено.").first.wait_for(timeout=10000)
+        no_inv = create_order(oapi, f"Без счёта E2E-{RUN}", [{"serviceId": "el-socket", "qty": 1, "complex": False, "dismantle": False}], [], clientType="organization", orgName=ORG, wantsInvoice=True)
+        op.goto(f"{BASE}/admin")
+        op.get_by_label("Поиск").fill(f"Без счёта E2E-{RUN}")
+        op.get_by_role("link", name=re.compile("Без счёта")).first.click()
+        op.get_by_role("heading", name=re.compile(r"Заявка №")).wait_for()
+        check("Счёт не запрошен" in norm(op.locator("main").inner_text()), "компания: при выключенной оплате по счёту отметка счёта не сохраняется")
+        no_inv_href = op.url.replace(BASE, "")
+        op.goto(f"{BASE}/admin/company")
+        op.get_by_label("Работаем с организациями").uncheck()
+        op.get_by_role("button", name="Сохранить", exact=True).click()
+        op.get_by_text("Сохранено.").first.wait_for(timeout=10000)
+        refuse = oapi.post(
+            f"{BASE}/api/orders",
+            data=json.dumps({"name": "Тест Организация", "phone": "+7 903 111-22-33", "address": "Москва, ул. Вымышленная, д. 7", "materials": "master", "consent": True, "photos": [],
+                             "lines": [{"serviceId": "el-socket", "qty": 1}], "clientType": "organization", "orgName": ORG}),
+            headers={"Content-Type": "application/json", "Origin": BASE, "Idempotency-Key": str(uuid.uuid4())},
+        )
+        check(refuse.status == 422 and "clientType" in (refuse.json().get("fields") or {}), "компания: при выключенных организациях заявка организации отклоняется (422)", f"{refuse.status} {refuse.text()[:200]}")
+        op.goto(f"{BASE}/admin/company")
+        op.get_by_label("Работаем с организациями").check()
+        op.get_by_label("Оплата по счёту").check()
+        op.get_by_label("Условия для организаций").fill(note_was)
+        op.get_by_role("button", name="Сохранить", exact=True).click()
+        op.get_by_text("Сохранено.").first.wait_for(timeout=10000)
+        op.reload()
+        check(op.get_by_label("Работаем с организациями").is_checked() and op.get_by_label("Оплата по счёту").is_checked(), "компания: настройки организаций сохраняются и возвращены")
+        for h in (org_href, no_inv_href):
+            op.goto(f"{BASE}{h}")
+            op.get_by_role("button", name="Удалить заявку…").click()
+            op.get_by_role("dialog").get_by_role("button", name="Удалить навсегда").click()
+            op.wait_for_url(re.compile(r"/admin\?deleted=1"), timeout=10000)
 
         # ---------- компания ----------
         op.goto(f"{BASE}/admin/company")

@@ -92,7 +92,7 @@
 
    Под `next start` проверка origin ждёт `http://localhost:3105`, а не `127.0.0.1`: страницы и API открывать по `localhost`.
 
-   База `hfah_figma` — отдельная (миграции + посев). Демо-заявки создают через публичный API (`POST /api/orders`, заголовки `Origin: http://localhost:3105` и `Idempotency-Key: <uuid>`; фото — `POST /api/uploads`), «согласована» ставят SQL-ом в этой же базе (`status='agreed'`, `final_price`, `agreed_at`). Пароль владельца демо — `ladno-demo-2026`.
+   База `hfah_figma` — отдельная (миграции + посев). Демо-заявки создают через публичный API (`POST /api/orders`, заголовки `Origin: http://localhost:3105` и `Idempotency-Key: <uuid>`; фото — `POST /api/uploads`), «согласована» ставят SQL-ом в этой же базе (`status='agreed'`, `final_price`, `agreed_at`). Пароль владельца демо — `zaprosto-demo-2026`.
 
 2. На каждый кадр — свой `captureId`: вызвать `generate_figma_design` с `fileKey` и `nodeId` страницы Figma (`0:1` «Клиент», `1:2` «Кабинет», `1:3` «Игра и служебные»); один и тот же `promptId` на всю серию. Новый кадр появится справа от последнего на этой странице.
 
