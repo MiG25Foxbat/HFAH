@@ -78,8 +78,9 @@ describe("проверка форм кабинета (без БД)", () => {
   });
 
   it("фильтры списка читаются из адреса", () => {
-    expect(parseOrderQuery({ q: "  Иван ", status: "agreed", period: "7d", n: "250" })).toEqual({ q: "Иван", status: "agreed", period: "7d", limit: 300 });
-    expect(parseOrderQuery({ status: "хак", period: "all", n: "-5" })).toEqual({ q: "", status: "all", period: "all", limit: 100 });
+    expect(parseOrderQuery({ q: "  Иван ", status: "agreed", period: "7d", n: "250" })).toEqual({ q: "Иван", status: "agreed", period: "7d", org: false, limit: 300 });
+    expect(parseOrderQuery({ org: "1" })).toMatchObject({ org: true });
+    expect(parseOrderQuery({ status: "хак", period: "all", n: "-5" })).toEqual({ q: "", status: "all", period: "all", org: false, limit: 100 });
   });
 
   it("памятка для выезда: объединяет одинаковые тексты и напоминает об условиях", () => {

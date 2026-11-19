@@ -1,25 +1,27 @@
 /** Тарифы, настройки компании и сеансы: запись из кабинета. Изменения прайса действуют только на НОВЫЕ заявки (старые хранят снимок). */
 import "server-only";
 import { sql } from "../db";
-import { updateService } from "../services";
+import { CatalogError, updateService } from "../services";
 import { updateSettingsSection } from "../settings";
 import type { PricingKind } from "@/lib/catalog";
-import {
-  parseCharactersForm,
-  parseCompanyForm,
-  parseGameForm,
-  parsePricingForm,
-  parseServiceForm,
-  type ActionResult,
-} from "@/lib/admin/schemas";
+import { parseServiceForm } from "@/lib/admin/catalog-forms";
+import { parseCharactersForm, parseCompanyForm, parseGameForm, parsePricingForm, type ActionResult } from "@/lib/admin/schemas";
 
-/** Цена, норма, демонтаж, активность и памятка одной работы. Цена и норма — только у работ с фиксированной ценой. */
+/**
+ * Цена, норма, демонтаж, активность, памятка, а также название, описание, категория и «для офиса» одной работы.
+ * Цена и норма — только у работ с фиксированной ценой.
+ */
 export async function saveService(id: string, values: unknown): Promise<ActionResult> {
   const [row] = await sql<{ pricing: PricingKind }[]>`select pricing from services where id = ${String(id).slice(0, 80)}`;
   if (!row) return { ok: false, error: "Работа не найдена. Обновите страницу." };
   const parsed = parseServiceForm(values, row.pricing);
   if (!parsed.ok) return { ok: false, fields: parsed.fields };
-  if (!(await updateService(id, parsed.data))) return { ok: false, error: "Работа не найдена. Обновите страницу." };
+  try {
+    if (!(await updateService(id, parsed.data))) return { ok: false, error: "Работа не найдена. Обновите страницу." };
+  } catch (e) {
+    if (e instanceof CatalogError) return { ok: false, error: e.message };
+    throw e;
+  }
   return { ok: true, message: "Сохранено. Новые заявки считаются по этим данным." };
 }
 

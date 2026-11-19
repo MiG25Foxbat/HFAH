@@ -2,7 +2,7 @@
  * Расчёт заказа. ЧИСТЫЙ модуль: без серверных импортов, работает и в браузере (корзина), и на сервере
  * (источник истины). Формула — docs/ARCHITECTURE.md, «Правила расчёта». Деньги — целые рубли.
  */
-import type { CategoryId, PricingKind, Service, Unit } from "./catalog";
+import type { Category, CategoryId, CharacterKey, PricingKind, Service, Unit } from "./catalog";
 
 export interface PricingSettings {
   hourRate: number;
@@ -33,6 +33,13 @@ export interface SnapshotLine {
   key: string;
   serviceId: string;
   category: CategoryId;
+  /**
+   * Название, цвет и персонаж категории на момент заказа (страница заявки и игра не зависят от правок каталога).
+   * Нет у старых заявок (до 002_catalog): читать через `lineCategory()`.
+   */
+  categoryTitle?: string;
+  categoryColor?: string;
+  character?: CharacterKey;
   title: string;
   unit: Unit;
   pricing: PricingKind;
@@ -133,15 +140,18 @@ export function lineTotal(unitPrice: number, qty: number, pct: number): number {
 
 /**
  * Собирает расчёт и снимок условий. Бросает PricingError для неизвестной/неактивной работы и неверного количества.
- * Одинаковые позиции (по cartLineKey) объединяются, количество суммируется.
+ * Одинаковые позиции (по cartLineKey) объединяются, количество суммируется. `categories` — для снимка названия,
+ * цвета и персонажа категории в строках заявки (корзине в браузере они не нужны).
  */
 export function buildPricingSnapshot(
   services: readonly Service[],
   settings: PricingSettings,
   input: OrderInput,
   now: Date = new Date(),
+  categories: readonly Pick<Category, "id" | "title" | "color" | "character">[] = [],
 ): PricingSnapshot {
   const byId = new Map(services.map((s) => [s.id, s]));
+  const categoryById = new Map(categories.map((c) => [c.id, c]));
   const merged = new Map<string, SnapshotLine>();
 
   input.lines.forEach((line, index) => {
@@ -161,12 +171,14 @@ export function buildPricingSnapshot(
     }
 
     const description = existing?.description ?? (line.description?.trim() || undefined);
+    const cat = categoryById.get(service.category);
     const unitPrice = manual ? null : service.pricing === "hourly" ? settings.hourRate : service.price;
     const pct = (complex ? settings.complexPct : 0) + (dismantle ? settings.dismantlePct : 0);
     merged.set(key, {
       key,
       serviceId: service.id,
       category: service.category,
+      ...(cat ? { categoryTitle: cat.title, categoryColor: cat.color, character: cat.character } : {}),
       title: service.title,
       unit: service.unit,
       pricing: service.pricing,

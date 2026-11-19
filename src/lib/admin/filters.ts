@@ -17,6 +17,8 @@ export interface OrderQuery {
   q: string;
   status: OrderStatus | "all";
   period: Period;
+  /** Только заявки организаций. */
+  org: boolean;
   /** Сколько строк показывать (кратно PAGE_SIZE). */
   limit: number;
 }
@@ -32,6 +34,7 @@ export function parseOrderQuery(raw: Raw): OrderQuery {
     q: first(raw.q).trim().slice(0, 100),
     status: (ORDER_STATUSES as readonly string[]).includes(status) ? (status as OrderStatus) : "all",
     period: (PERIODS as readonly string[]).includes(period) ? (period as Period) : "all",
+    org: first(raw.org) === "1",
     limit: Number.isInteger(n) && n > PAGE_SIZE ? Math.min(MAX_PAGE, Math.ceil(n / PAGE_SIZE) * PAGE_SIZE) : PAGE_SIZE,
   };
 }
@@ -42,6 +45,7 @@ export function ordersHref(query: Partial<OrderQuery>): string {
   if (query.q) p.set("q", query.q);
   if (query.status && query.status !== "all") p.set("status", query.status);
   if (query.period && query.period !== "all") p.set("period", query.period);
+  if (query.org) p.set("org", "1");
   if (query.limit && query.limit > PAGE_SIZE) p.set("n", String(query.limit));
   const s = p.toString();
   return s ? `/admin?${s}` : "/admin";

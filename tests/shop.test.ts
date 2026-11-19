@@ -13,18 +13,21 @@ const services = [
   { title: "Замена кровати", description: "", category: "furniture" as const },
 ];
 
+const TITLES: Record<string, string> = { plumbing: "Сантехника", furniture: "Мебель", electrics: "Электрика" };
+const search = (query: string) => searchServices(services, query, (id) => TITLES[id] ?? id);
+
 describe("поиск по каталогу", () => {
   it("находит работу по любой падежной форме слова", () => {
-    for (const q of ["смеситель", "смесителя", "смесителем", "СМЕСИТЕЛЬ"]) expect(searchServices(services, q).map((s) => s.title)).toEqual(["Замена смесителя"]);
-    expect(searchServices(services, "шкафы")).toHaveLength(1);
-    expect(searchServices(services, "розетку")).toHaveLength(1);
+    for (const q of ["смеситель", "смесителя", "смесителем", "СМЕСИТЕЛЬ"]) expect(search(q).map((s) => s.title)).toEqual(["Замена смесителя"]);
+    expect(search("шкафы")).toHaveLength(1);
+    expect(search("розетку")).toHaveLength(1);
   });
 
   it("все слова запроса должны встретиться; категория тоже ищется", () => {
-    expect(searchServices(services, "замена смесителя")).toHaveLength(1);
-    expect(searchServices(services, "замена шкафа")).toHaveLength(0);
-    expect(searchServices(services, "мебель").map((s) => s.title)).toEqual(["Сборка шкафа", "Замена кровати"]);
-    expect(searchServices(services, "   ")).toEqual([]);
+    expect(search("замена смесителя")).toHaveLength(1);
+    expect(search("замена шкафа")).toHaveLength(0);
+    expect(search("мебель").map((s) => s.title)).toEqual(["Сборка шкафа", "Замена кровати"]);
+    expect(search("   ")).toEqual([]);
   });
 
   it("основа не короче четырёх букв", () => {

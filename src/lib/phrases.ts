@@ -3,12 +3,12 @@
  * Реплики про категорию в целом: персонаж не меняется под конкретную работу, поэтому не обещаем «именно эту».
  * Без нейросети и сети: выбор детерминированный по seed.
  */
-import type { CategoryId } from "@/lib/catalog";
+import type { CharacterKey } from "@/lib/catalog";
 import type { Characters } from "@/lib/settings";
 
 export type Personality = Characters["personality"];
 
-export const PHRASES: Record<CategoryId, Record<Personality, readonly string[]>> = {
+export const PHRASES: Record<CharacterKey, Record<Personality, readonly string[]>> = {
   furniture: {
     calm: [
       "Соберу, повешу, подтяну — выбирайте, что нужно.",
@@ -36,19 +36,19 @@ export const PHRASES: Record<CategoryId, Record<Personality, readonly string[]>>
     calm: [
       "Смесители, сифоны, подводки — заменю аккуратно.",
       "Течёт или засорилось? Выберите работу, цена появится сразу.",
-      "Подключу стиральную и посудомоечную машину.",
+      "Воду и слив подключу и проверю на течь.",
       "С мелкой течью разберёмся спокойно.",
       "Раковина, унитаз, смеситель — всё за один выезд.",
     ],
     cheerful: [
       "Капает? Давайте это исправим!",
       "Смесители, сифоны, раковины — мой родной край.",
-      "Подключу машинку, и вода пойдёт куда надо.",
+      "Вода пойдёт туда, куда надо. Проверю на течь.",
       "Течь, засор, подводка — выбирайте, с чего начнём.",
       "Вода любит порядок. Я тоже.",
     ],
     business: [
-      "Замена смесителей, сифонов и подводок, подключение техники.",
+      "Замена смесителей, сифонов и подводок.",
       "Устранение засоров и мелких течей.",
       "Установка раковин и унитазов.",
       "Материалы и запчасти оплачиваются отдельно.",
@@ -101,6 +101,29 @@ export const PHRASES: Record<CategoryId, Record<Personality, readonly string[]>>
       "Материалы и запчасти не входят в цену работы.",
     ],
   },
+  appliances: {
+    calm: [
+      "Подключу, настрою, отремонтирую — выбирайте, что нужно.",
+      "Стиральная, посудомойка, плита — подключим аккуратно.",
+      "Расскажите, что с техникой, и подберём работу ниже.",
+      "Холодильник, вытяжка, телевизор — тоже в моей части.",
+      "Не уверены, что сломалось? Начните с диагностики.",
+    ],
+    cheerful: [
+      "Стиралка, посудомойка, плита — подключим, и всё заработает!",
+      "Люк открыт, давайте посмотрим, что у вас с техникой.",
+      "Телевизор повесим ровно, кофемашину подключим без луж.",
+      "Что-то гудит, течёт или не включается? Выбирайте ниже.",
+      "Хорошая техника любит хорошее подключение.",
+    ],
+    business: [
+      "Подключение, установка, настройка и ремонт бытовой техники.",
+      "Цена за единицу работы указана рядом с каждой услугой.",
+      "Ремонт оценивается по фото: приложите снимок и опишите неисправность.",
+      "Запчасти и материалы не входят в цену работы.",
+      "Выберите работы — стоимость посчитается сразу.",
+    ],
+  },
   other: {
     calm: [
       "Не нашли нужную работу? Опишите задачу и приложите фото.",
@@ -127,17 +150,18 @@ export const PHRASES: Record<CategoryId, Record<Personality, readonly string[]>>
 };
 
 /** Как называть персонажа в подписях для скринридеров (родительный падеж не нужен: «3D-персонаж: смеситель»). */
-export const CHARACTER_NAME: Record<CategoryId, string> = {
+export const CHARACTER_NAME: Record<CharacterKey, string> = {
   furniture: "шкаф",
   plumbing: "смеситель",
   electrics: "настольная лампа",
   repair: "малярный валик",
   other: "ящик с инструментами",
+  appliances: "стиральная машина",
 };
 
 /** Детерминированно выбирает реплику: одинаковый seed — одинаковая фраза. */
-export function pickPhrase(category: CategoryId, personality: Personality, seed: number): string {
-  const list = PHRASES[category][personality];
+export function pickPhrase(character: CharacterKey, personality: Personality, seed: number): string {
+  const list = PHRASES[character][personality];
   const i = Math.abs(Math.trunc(seed)) % list.length;
   return list[i];
 }

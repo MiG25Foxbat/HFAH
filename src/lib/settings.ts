@@ -27,6 +27,12 @@ export const companySchema = z.object({
     email: z.string().trim().max(120),
   }),
   excluded: z.array(excludedItemSchema).max(30),
+  /** Показывать раздел «Для офисов» и выбор «Организация» при оформлении. Значения по умолчанию — для старых записей без этих полей. */
+  orgsEnabled: z.boolean().default(true),
+  /** Организация может отметить «Нужен счёт и закрывающие документы». */
+  invoiceEnabled: z.boolean().default(true),
+  /** Короткий текст условий для организаций (на странице «Для офисов» и при оформлении). */
+  orgNote: z.string().trim().max(300, "Условия — не длиннее 300 символов").default(""),
 });
 
 export const pricingSchema = z.object({

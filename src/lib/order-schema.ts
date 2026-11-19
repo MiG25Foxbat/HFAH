@@ -19,6 +19,9 @@ export const MATERIALS_LABEL: Record<Materials, string> = {
   unknown: "Пока не знаю",
 };
 
+export const CLIENT_TYPES = ["person", "organization"] as const;
+export type ClientType = (typeof CLIENT_TYPES)[number];
+
 export const ACCESS_FIELDS = ["entrance", "intercom", "floor", "elevator", "parking"] as const;
 
 /** Российский номер → «+7XXXXXXXXXX» или null. Принимает 8…, +7…, 7…, с пробелами и скобками. */
@@ -105,6 +108,14 @@ export const orderSchema = z
         .optional(),
     ),
     comment: z.string().trim().max(1000, "Комментарий — не длиннее 1000 символов").default(""),
+    clientType: z.enum(CLIENT_TYPES, { error: "Выберите, кто заказывает" }).default("person"),
+    orgName: z.preprocess(emptyToUndefined, z.string().trim().min(2, "Название — не короче 2 символов").max(120, "Название — не длиннее 120 символов").optional()),
+    // ИНН вводят с пробелами и дефисами: «7707 083893»; хранится только цифрами
+    orgInn: z.preprocess(
+      (v) => (typeof v === "string" ? emptyToUndefined(v.replace(/[\s-]/g, "")) : v),
+      z.string().regex(/^(\d{10}|\d{12})$/, "ИНН — 10 цифр у организации или 12 у ИП").optional(),
+    ),
+    wantsInvoice: z.boolean().default(false),
     consent: z.literal(true, { error: "Нужно согласие на обработку персональных данных" }),
     lines: z
       .array(lineSchema, { error: "Добавьте в заявку хотя бы одну работу" })
@@ -117,6 +128,9 @@ export const orderSchema = z
       .refine((p) => new Set(p.map((x) => x.id)).size === p.length, "Одно и то же фото приложено дважды"),
   })
   .superRefine((o, ctx) => {
+    if (o.clientType === "organization" && !o.orgName) {
+      ctx.addIssue({ code: "custom", path: ["orgName"], message: "Укажите название организации" });
+    }
     if (o.desiredTime && !o.desiredDate) {
       ctx.addIssue({ code: "custom", path: ["desiredTime"], message: "Для конкретного времени укажите дату" });
     }
@@ -126,7 +140,9 @@ export const orderSchema = z
       if (o.desiredDate < today) ctx.addIssue({ code: "custom", path: ["desiredDate"], message: "Дата уже прошла — выберите сегодня или позже" });
       else if (o.desiredDate > max) ctx.addIssue({ code: "custom", path: ["desiredDate"], message: "Выберите дату не дальше чем через год" });
     }
-  });
+  })
+  // реквизиты имеют смысл только у организации: у частного лица лишние поля отбрасываются (и не попадают в отпечаток запроса)
+  .transform((o) => (o.clientType === "organization" ? o : { ...o, orgName: undefined, orgInn: undefined, wantsInvoice: false }));
 
 /** То, что приходит в POST /api/orders (до проверки). */
 export type OrderInputRaw = z.input<typeof orderSchema>;

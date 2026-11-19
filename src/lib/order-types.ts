@@ -1,7 +1,7 @@
 /** Типы заявки, общие для сервера, клиентской страницы /o/<токен> и кабинета. Без серверных импортов. */
-import type { CategoryId, Unit } from "./catalog";
+import type { CategoryId, CharacterKey, Unit } from "./catalog";
 import type { GameSettings } from "./settings";
-import type { Materials } from "./order-schema";
+import type { ClientType, Materials } from "./order-schema";
 
 export const ORDER_STATUSES = ["new", "agreed", "done", "cancelled"] as const;
 export type OrderStatus = (typeof ORDER_STATUSES)[number];
@@ -15,8 +15,12 @@ export const ORDER_STATUS_LABEL: Record<OrderStatus, string> = {
 
 export interface PublicOrderLine {
   title: string;
-  /** Категория работы из снимка заявки: по ней клиентская игра выбирает предмет. */
+  /** Категория работы из снимка заявки (id на момент заказа). */
   category: CategoryId;
+  /** Название, цвет и персонаж категории на момент заказа: по персонажу игра выбирает предмет. У старых заявок — запасные значения. */
+  categoryTitle: string;
+  categoryColor: string;
+  character: CharacterKey;
   qty: number;
   unit: Unit;
   /** null — «По фото». */
@@ -48,6 +52,10 @@ export interface PublicOrder {
   number: number;
   status: OrderStatus;
   createdAt: string;
+  /** Кто заказывал; название организации — данные самого клиента на его приватной странице. */
+  clientType: ClientType;
+  orgName: string | null;
+  wantsInvoice: boolean;
   lines: PublicOrderLine[];
   totals: {
     subtotal: number;

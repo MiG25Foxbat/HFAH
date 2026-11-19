@@ -25,6 +25,7 @@ const svc = (o: Partial<Service> & { id: string }): Service => ({
   price: 1000,
   minutes: 30,
   dismantleAllowed: false,
+  office: false,
   memo: "",
   active: true,
   sort: 0,

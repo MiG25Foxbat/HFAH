@@ -9,7 +9,7 @@ import { z } from "zod";
 import { sql } from "../db";
 import type { PricingSnapshot } from "@/lib/pricing";
 import type { ExcludedMatch } from "@/lib/excluded";
-import type { Materials } from "@/lib/order-schema";
+import type { ClientType, Materials } from "@/lib/order-schema";
 import { ORDER_STATUSES, type OrderStatus } from "@/lib/order-types";
 import type { ActionResult, DealInput } from "@/lib/admin/schemas";
 import { type OrderQuery, type Period } from "@/lib/admin/filters";
@@ -39,6 +39,7 @@ function searchCond(q: string): Frag {
   const parts: Frag[] = [
     sql`strpos(${fold(sql`o.customer_name`)}, ${s}) > 0`,
     sql`strpos(${fold(sql`o.address`)}, ${s}) > 0`,
+    sql`strpos(${fold(sql`coalesce(o.org_name, '')`)}, ${s}) > 0`,
     sql`exists (select 1 from jsonb_array_elements(o.pricing_snapshot->'lines') l where strpos(${fold(sql`l->>'title'`)}, ${s}) > 0)`,
   ];
   const num = q.match(/^[#№]?\s*(\d{1,9})$/);
@@ -47,6 +48,7 @@ function searchCond(q: string): Frag {
     const digits = q.replace(/\D/g, "");
     if (digits.length >= 4) {
       parts.push(sql`strpos(o.phone, ${digits}) > 0`);
+      parts.push(sql`strpos(coalesce(o.org_inn, ''), ${digits}) > 0`);
       if (/^[78]/.test(digits) && digits.length > 4) parts.push(sql`strpos(o.phone, ${digits.slice(1)}) > 0`);
     }
   }
@@ -70,6 +72,9 @@ export interface OrderListRow {
   status: OrderStatus;
   createdAt: Date;
   customerName: string;
+  /** Заявка от организации: название в списке показывается рядом с именем контактного лица. */
+  clientType: ClientType;
+  orgName: string | null;
   address: string;
   /** Известная часть цены на момент заявки (при hasManual — не итог). */
   knownTotal: number | null;
@@ -94,13 +99,14 @@ export interface OrderList {
 export async function listOrders(query: OrderQuery): Promise<OrderList> {
   const base: Frag[] = [];
   if (query.q) base.push(searchCond(query.q));
+  if (query.org) base.push(sql`o.client_type = 'organization'`);
   const since = periodStart(query.period);
   if (since) base.push(sql`o.created_at >= ${since}`);
   const withStatus = query.status === "all" ? base : [...base, sql`o.status = ${query.status}`];
 
   const [rows, countRows] = await Promise.all([
     sql<(Omit<OrderListRow, "excludedCount" | "photoCount"> & { excludedCount: number; photoCount: number })[]>`
-      select o.id, o.number::int as number, o.status, o.created_at, o.customer_name, o.address, o.known_total, o.has_manual,
+      select o.id, o.number::int as number, o.status, o.created_at, o.customer_name, o.client_type, o.org_name, o.address, o.known_total, o.has_manual,
              o.final_price, o.agreed_at, o.urgent, o.out_of_town,
              jsonb_array_length(o.excluded_matches)::int as excluded_count,
              (select count(*)::int from photos p where p.order_id = o.id) as photo_count
@@ -132,6 +138,10 @@ export interface OrderDetail {
   customerName: string;
   phone: string;
   address: string;
+  clientType: ClientType;
+  orgName: string | null;
+  orgInn: string | null;
+  wantsInvoice: boolean;
   access: Partial<Record<"entrance" | "intercom" | "floor" | "elevator" | "parking", string>>;
   outOfTown: boolean;
   urgent: boolean;
@@ -156,7 +166,8 @@ export async function getOrderDetail(id: string): Promise<OrderDetail | null> {
   if (!isUuid(id)) return null;
   const [[order], photos, events, [bonus]] = await Promise.all([
     sql<Omit<OrderDetail, "photos" | "events" | "bonus" | "snapshot"> & { pricingSnapshot: PricingSnapshot }[]>`
-      select id, number::int as number, status, created_at, updated_at, customer_name, phone, address, access, out_of_town, urgent,
+      select id, number::int as number, status, created_at, updated_at, customer_name, phone, address,
+             client_type, org_name, org_inn, wants_invoice, access, out_of_town, urgent,
              materials, desired_date::text as desired_date, desired_time, comment, pricing_snapshot, known_total, has_manual,
              est_minutes, final_price, agreed_at, owner_note, excluded_matches
       from orders where id = ${id}`,

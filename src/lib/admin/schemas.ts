@@ -6,7 +6,6 @@
 import { z } from "zod";
 import { zodFields, normalizePhone } from "@/lib/order-schema";
 import { ORDER_STATUSES, type OrderStatus } from "@/lib/order-types";
-import type { PricingKind } from "@/lib/catalog";
 import {
   charactersSchema,
   companySchema,
@@ -81,49 +80,6 @@ export function parseNoteForm(values: unknown): Parsed<{ note: string }> {
   return r.success ? { ok: true, data: r.data } : fail(zodFields(r.error));
 }
 
-// ---- тарифы ----
-
-export interface ServicePatchInput {
-  price?: number;
-  minutes?: number;
-  dismantleAllowed?: boolean;
-  memo: string;
-  active: boolean;
-}
-
-const serviceFormSchema = z.object({
-  price: z.string().trim(),
-  minutes: z.string().trim(),
-  dismantleAllowed: z.boolean(),
-  active: z.boolean(),
-  memo: z.string().trim().max(1000, "Памятка — не длиннее 1000 символов"),
-});
-
-const intIn = (s: string, min: number, max: number) => (/^\d{1,9}$/.test(s) && Number(s) >= min && Number(s) <= max ? Number(s) : null);
-
-/**
- * Что можно менять у работы. Цена и норма времени — только у работ с фиксированной ценой: у почасовой цену задаёт
- * «цена часа», у «по фото» цены нет вообще.
- */
-export function parseServiceForm(values: unknown, pricing: PricingKind): Parsed<ServicePatchInput> {
-  const r = serviceFormSchema.safeParse(values);
-  if (!r.success) return fail(zodFields(r.error));
-  const v = r.data;
-  const patch: ServicePatchInput = { memo: v.memo, active: v.active };
-  if (pricing === "fixed") {
-    const fields: Record<string, string> = {};
-    const price = intIn(v.price, 0, MAX_RUB);
-    const minutes = intIn(v.minutes, 0, 1440);
-    if (price === null) fields.price = "Цена — целое число рублей от 0 до 1 000 000";
-    if (minutes === null) fields.minutes = "Норма — целое число минут от 0 до 1440";
-    if (price === null || minutes === null) return fail(fields);
-    patch.price = price;
-    patch.minutes = minutes;
-    patch.dismantleAllowed = v.dismantleAllowed;
-  }
-  return { ok: true, data: patch };
-}
-
 // ---- настройки ----
 
 const PRICING_KEYS = ["hourRate", "minOrder", "complexPct", "dismantlePct", "urgentPct", "outOfTownFee"] as const;
@@ -156,6 +112,9 @@ export interface CompanyForm {
   telegram: string;
   whatsapp: string;
   email: string;
+  orgsEnabled: boolean;
+  invoiceEnabled: boolean;
+  orgNote: string;
   excluded: { title: string; hint: string; keywords: string }[];
 }
 
@@ -208,6 +167,9 @@ export function parseCompanyForm(values: unknown): Parsed<Company> {
     accent: text("accent"),
     contacts: { phone, telegram, whatsapp, email },
     excluded,
+    orgsEnabled: o.orgsEnabled,
+    invoiceEnabled: o.invoiceEnabled,
+    orgNote: text("orgNote"),
   });
   if (!r.success) {
     for (const issue of r.error.issues) {

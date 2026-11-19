@@ -1,5 +1,5 @@
 /** Поиск по каталогу и «чего мы не делаем» для интерфейса. Чистый модуль. */
-import { categoryTitle, type Service } from "./catalog";
+import type { Service } from "./catalog";
 import { findExcluded } from "./excluded";
 import type { ExcludedItem } from "./settings";
 
@@ -13,12 +13,16 @@ export function stem(word: string): string {
   return ending ? word.slice(0, -ending.length) : word;
 }
 
-/** Работы, у которых в названии, описании или категории встречаются основы всех слов запроса. */
-export function searchServices<T extends Pick<Service, "title" | "description" | "category">>(services: readonly T[], query: string): T[] {
+/** Работы, у которых в названии, описании или категории встречаются основы всех слов запроса. `titleOf` — название категории по id. */
+export function searchServices<T extends Pick<Service, "title" | "description" | "category">>(
+  services: readonly T[],
+  query: string,
+  titleOf: (categoryId: string) => string,
+): T[] {
   const words = norm(query).split(" ").filter(Boolean).map(stem);
   if (!words.length) return [];
   return services.filter((s) => {
-    const hay = norm(`${s.title} ${s.description} ${categoryTitle(s.category)}`);
+    const hay = norm(`${s.title} ${s.description} ${titleOf(s.category)}`);
     return words.every((w) => hay.includes(w));
   });
 }

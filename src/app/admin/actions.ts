@@ -15,6 +15,18 @@ import { deleteOrder, saveDeal, saveNote } from "@/lib/server/admin/orders";
 import { setBonusStatus } from "@/lib/server/admin/bonus";
 import { destroyAllSessions, saveSection, saveService } from "@/lib/server/admin/tariffs";
 import {
+  createCategory,
+  createService,
+  deleteCategory,
+  deleteService,
+  moveCategory,
+  moveService,
+  setCategoryActive,
+  setServiceActive,
+  updateCategory,
+  type MoveDirection,
+} from "@/lib/server/admin/catalog";
+import {
   BONUS_STATUSES,
   loginSchema,
   parseDealForm,
@@ -114,6 +126,53 @@ export async function setBonusStatusAction(codeId: number, status: string): Prom
 export async function saveServiceAction(serviceId: string, values: unknown): Promise<ActionResult> {
   await requireOwner();
   return guarded(() => saveService(serviceId, values));
+}
+
+// ---- каталог: категории и работы ----
+
+export async function createCategoryAction(values: unknown): Promise<ActionResult> {
+  await requireOwner();
+  return guarded(() => createCategory(values));
+}
+
+export async function updateCategoryAction(categoryId: string, values: unknown): Promise<ActionResult> {
+  await requireOwner();
+  return guarded(() => updateCategory(String(categoryId), values));
+}
+
+export async function setCategoryActiveAction(categoryId: string, active: boolean): Promise<ActionResult> {
+  await requireOwner();
+  return guarded(() => setCategoryActive(String(categoryId), active === true));
+}
+
+export async function moveCategoryAction(categoryId: string, direction: MoveDirection): Promise<ActionResult> {
+  await requireOwner();
+  return guarded(() => moveCategory(String(categoryId), direction));
+}
+
+export async function deleteCategoryAction(categoryId: string): Promise<ActionResult> {
+  await requireOwner();
+  return guarded(() => deleteCategory(String(categoryId)));
+}
+
+export async function createServiceAction(categoryId: string, values: unknown): Promise<ActionResult> {
+  await requireOwner();
+  return guarded(() => createService(String(categoryId), values));
+}
+
+export async function setServiceActiveAction(serviceId: string, active: boolean): Promise<ActionResult> {
+  await requireOwner();
+  return guarded(() => setServiceActive(String(serviceId), active === true));
+}
+
+export async function moveServiceAction(serviceId: string, direction: MoveDirection): Promise<ActionResult> {
+  await requireOwner();
+  return guarded(() => moveService(String(serviceId), direction));
+}
+
+export async function deleteServiceAction(serviceId: string): Promise<ActionResult> {
+  await requireOwner();
+  return guarded(() => deleteService(String(serviceId)));
 }
 
 export async function savePricingAction(values: unknown): Promise<ActionResult> {

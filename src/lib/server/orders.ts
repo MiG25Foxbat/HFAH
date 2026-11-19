@@ -3,11 +3,14 @@ import { createHash } from "node:crypto";
 import { sql } from "./db";
 import { ApiError } from "./http";
 import { getSettings } from "./settings";
+import { listCategories } from "./categories";
 import { listServices } from "./services";
 import { looksLikeToken, orderToken, sha256Hex } from "./tokens";
 import { PricingError, buildPricingSnapshot, type PricingSnapshot } from "@/lib/pricing";
 import { findExcluded, type ExcludedMatch } from "@/lib/excluded";
 import type { OrderData } from "@/lib/order-schema";
+import { lineCategory } from "@/lib/catalog";
+import type { ClientType } from "@/lib/order-schema";
 import type { OrderStatus, PublicOrder } from "@/lib/order-types";
 
 export interface CreatedOrder {
@@ -60,11 +63,27 @@ export async function createOrder(data: OrderData, idempotencyKey: string): Prom
   const existing = await findByKey(idempotencyKey);
   if (existing) return replayOf(existing, fingerprint, idempotencyKey);
 
-  const [settings, services] = await Promise.all([getSettings(), listServices()]);
+  // activeOnly: скрытая работа и работа из скрытой категории заказу недоступны (та же ошибка, что и у неизвестной)
+  const [settings, services, categories] = await Promise.all([getSettings(), listServices({ activeOnly: true }), listCategories()]);
+
+  // Организации: выбор «Организация» только если владелец его включил; счёт — только если включена оплата по счёту.
+  if (data.clientType === "organization" && !settings.company.orgsEnabled) {
+    throw new ApiError(422, "Заявки от организаций сейчас не принимаются.", {
+      code: "validation",
+      fields: { clientType: "Заявки от организаций сейчас не принимаются — оформите как частное лицо или позвоните." },
+    });
+  }
+  const wantsInvoice = data.clientType === "organization" && data.wantsInvoice && settings.company.invoiceEnabled;
 
   let snapshot: PricingSnapshot;
   try {
-    snapshot = buildPricingSnapshot(services, settings.pricing, { lines: data.lines, urgent: data.urgent, outOfTown: data.outOfTown });
+    snapshot = buildPricingSnapshot(
+      services,
+      settings.pricing,
+      { lines: data.lines, urgent: data.urgent, outOfTown: data.outOfTown },
+      new Date(),
+      categories,
+    );
   } catch (e) {
     if (e instanceof PricingError) {
       throw new ApiError(422, e.message, { code: e.code, fields: { [`lines.${e.lineIndex}`]: e.message } });
@@ -95,14 +114,17 @@ export async function createOrder(data: OrderData, idempotencyKey: string): Prom
       insert into orders (
         customer_name, phone, address, access, out_of_town, urgent, materials, desired_date, desired_time, comment,
         consent_at, pricing_snapshot, known_total, has_manual, est_minutes,
-        public_token_hash, idempotency_key, request_fingerprint, excluded_matches
+        public_token_hash, idempotency_key, request_fingerprint, excluded_matches,
+        client_type, org_name, org_inn, wants_invoice
       ) values (
         ${data.name}, ${data.phone}, ${data.address}, ${tx.json(data.access)}, ${data.outOfTown}, ${data.urgent}, ${data.materials},
         ${data.desiredDate ?? null}, ${data.desiredTime ?? null}, ${data.comment},
         now(), ${tx.json(snapshot as never)}, ${snapshot.knownTotal}, ${snapshot.hasManual}, ${snapshot.minutes},
-        ${sha256Hex(orderToken(idempotencyKey))}, ${idempotencyKey}, ${fingerprint}, ${tx.json(excluded)}
+        ${sha256Hex(orderToken(idempotencyKey))}, ${idempotencyKey}, ${fingerprint}, ${tx.json(excluded)},
+        ${data.clientType}, ${data.orgName ?? null}, ${data.orgInn ?? null}, ${wantsInvoice}
       )
-      on conflict (idempotency_key) do nothing
+      -- без цели: токен заявки — производная от ключа, при параллельном повторе может сработать и его уникальный индекс
+      on conflict do nothing
       returning id, number`;
     if (!order) return null; // параллельный повтор с тем же ключом — разберём ниже
 
@@ -133,6 +155,12 @@ export async function createOrder(data: OrderData, idempotencyKey: string): Prom
   return { number: Number(created.number), token, url: `/o/${token}`, replay: false };
 }
 
+/** Название, цвет и персонаж категории строки: из снимка, а у старых заявок (до 002_catalog) — запасные значения. */
+function categoryOf(l: PricingSnapshot["lines"][number]) {
+  const c = lineCategory(l);
+  return { categoryTitle: c.title, categoryColor: c.color, character: c.character };
+}
+
 interface PublicRow {
   number: string;
   status: OrderStatus;
@@ -141,6 +169,9 @@ interface PublicRow {
   desiredTime: string | null;
   materials: PublicOrder["materials"];
   pricingSnapshot: PricingSnapshot;
+  clientType: ClientType;
+  orgName: string | null;
+  wantsInvoice: boolean;
   finalPrice: number | null;
   agreedAt: Date | null;
   photoCount: number;
@@ -158,7 +189,7 @@ export async function getPublicOrder(token: string): Promise<PublicOrder | null>
   const [[row], settings] = await Promise.all([
     sql<PublicRow[]>`
       select o.number, o.status, o.created_at, o.desired_date::text as desired_date, o.desired_time, o.materials,
-             o.pricing_snapshot, o.final_price, o.agreed_at, o.excluded_matches,
+             o.pricing_snapshot, o.client_type, o.org_name, o.wants_invoice, o.final_price, o.agreed_at, o.excluded_matches,
              (select count(*)::int from photos p where p.order_id = o.id) as photo_count,
              b.code as bonus_code, b.amount as bonus_amount, b.min_order as bonus_min_order,
              b.expires_at as bonus_expires_at, b.status as bonus_status
@@ -172,9 +203,13 @@ export async function getPublicOrder(token: string): Promise<PublicOrder | null>
     number: Number(row.number),
     status: row.status,
     createdAt: row.createdAt.toISOString(),
+    clientType: row.clientType,
+    orgName: row.orgName,
+    wantsInvoice: row.wantsInvoice,
     lines: s.lines.map((l) => ({
       title: l.title,
       category: l.category,
+      ...categoryOf(l),
       qty: l.qty,
       unit: l.unit,
       unitPrice: l.unitPrice,

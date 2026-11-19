@@ -1,14 +1,12 @@
 import "server-only";
 import { cache } from "react";
-import type { CategoryId, Service } from "./catalog";
+import type { Category, Service } from "./catalog";
 import type { Settings } from "./settings";
 import { getCatalog } from "./server/services";
 import { getSettings } from "./server/settings";
 
-export interface ShopGroup {
-  id: CategoryId;
-  title: string;
-  color: string;
+/** Видимая категория с её доступными работами (категории без работ клиенту не показываются). */
+export interface ShopGroup extends Pick<Category, "id" | "title" | "color" | "character"> {
   services: Service[];
 }
 
@@ -25,6 +23,12 @@ export interface ShopData {
  */
 export const getShopData = cache(async (): Promise<ShopData> => {
   const [catalog, settings] = await Promise.all([getCatalog(), getSettings()]);
-  const groups = catalog.map((g) => ({ ...g, services: g.services.map((s) => ({ ...s, memo: "" })) }));
+  const groups = catalog.map(({ id, title, color, character, services }) => ({
+    id,
+    title,
+    color,
+    character,
+    services: services.map((s) => ({ ...s, memo: "" })),
+  }));
   return { groups, services: groups.flatMap((g) => g.services), settings };
 });
