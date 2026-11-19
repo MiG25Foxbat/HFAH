@@ -44,9 +44,13 @@ export async function requireOwner(): Promise<OwnerSession> {
 
 export type AuthResult = { ok: true } | { ok: false; error: string };
 
-/** Вход: 10 попыток за 15 минут с одного IP. При успехе выставляет cookie `ladno_sid`. */
+/**
+ * Вход: 10 попыток за 15 минут с одного IP и 50 за 15 минут всего (страховка, если IP подделан).
+ * При успехе выставляет cookie `ladno_sid`.
+ */
 export async function login(password: string): Promise<AuthResult> {
-  const limit = await rateLimit(`login:${shortHash(clientIp(await headers()))}`, 10, 900);
+  const global = await rateLimit("login:all", 50, 900);
+  const limit = global.ok ? await rateLimit(`login:${shortHash(clientIp(await headers()))}`, 10, 900) : global;
   if (!limit.ok) {
     return { ok: false, error: `Слишком много попыток входа. Подождите ${Math.ceil(limit.retryAfterSec / 60)} мин.` };
   }

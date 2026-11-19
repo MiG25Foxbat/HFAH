@@ -58,10 +58,16 @@ export function assertSameOrigin(request: Request): void {
   }
 }
 
-/** IP клиента из X-Forwarded-For / X-Real-IP (за прокси платформы). Локально — "local". */
+/**
+ * IP клиента для лимитов. Левые значения X-Forwarded-For присылает сам клиент, им верить нельзя:
+ * берём заголовок из CLIENT_IP_HEADER (его ставит платформа, на Vercel — `x-real-ip`),
+ * иначе самое правое значение X-Forwarded-For (его дописал ближайший прокси). Локально — "local".
+ */
 export function clientIp(source: Request | Headers): string {
   const h = source instanceof Headers ? source : source.headers;
-  return h.get("x-forwarded-for")?.split(",")[0]?.trim() || h.get("x-real-ip") || "local";
+  const trusted = process.env.CLIENT_IP_HEADER?.trim().toLowerCase();
+  if (trusted) return h.get(trusted)?.split(",").pop()?.trim() || "local";
+  return h.get("x-forwarded-for")?.split(",").pop()?.trim() || "local";
 }
 
 /** Читает JSON-тело (до maxBytes). 415/413/400 с понятным текстом. */
