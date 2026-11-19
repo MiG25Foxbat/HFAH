@@ -1,36 +1,72 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# «Ладно» — мастер на час
 
-## Getting Started
+Веб-приложение для компании «мастер на час»: каталог работ с ценами, заявка с пересчётом на сервере, приватная ссылка
+для клиента, кабинет владельца. Требования — `SPEC.md`, решения — `docs/ARCHITECTURE.md`, дизайн — `docs/DESIGN.md`,
+отклонения и выбор версий — `docs/DECISIONS.md`.
 
-First, run the development server:
+Состояние: фундамент (данные, расчёт, серверные библиотеки, публичный API, токены дизайна). Клиентский интерфейс
+(сцена, корзина, оформление), страница заявки и кабинет строятся поверх.
+
+## Запуск
+
+Нужны Node 22+ и PostgreSQL 15+.
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+cp .env.example .env.local     # заполните DATABASE_URL, TOKEN_SECRET, OWNER_PASSWORD
+npm run db:migrate             # схема
+npm run db:seed                # демо-прайс и настройки (вымышленные)
+npm run dev                    # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+| Команда | Что делает |
+|---|---|
+| `npm run dev` / `build` / `start` | разработка / сборка / запуск сборки |
+| `npm run typecheck` / `lint` | проверка типов / ESLint |
+| `npm test` | vitest: расчёт (юнит) и интеграция с БД `TEST_DATABASE_URL` (имя базы должно оканчиваться на `_test`) |
+| `npm run db:migrate` | применяет новые файлы из `db/migrations/*.sql` (журнал — таблица `schema_migrations`) |
+| `npm run db:seed` | досевает демо-данные, ничего не затирая; `-- --overwrite` возвращает демо-значения |
+| `npm run db:reset` | удаляет ВСЕ данные, миграции и посев заново; отказывается, если `DATABASE_URL` не на localhost |
+| `npm run owner:password -- "пароль"` | задаёт пароль владельца (≥ 10 символов) и закрывает все его сеансы |
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Секреты (`DATABASE_URL`, `TOKEN_SECRET`, `OWNER_PASSWORD`) живут только на сервере. `OWNER_PASSWORD` читают лишь
+`db:seed` и `owner:password`; в БД попадает scrypt-хеш.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Локальная разработка (только демо)
 
-## Learn More
+Для локальной базы посев и `db:reset` подставляют демо-пароль владельца `ladno-demo-2026`, если `OWNER_PASSWORD`
+не задан. В production задайте свой пароль и смените демо-значения.
 
-To learn more about Next.js, take a look at the following resources:
+## Устройство
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```
+db/migrations/        SQL-схема
+scripts/              migrate, seed, reset, owner:password (tsx)
+src/lib/              ЧИСТЫЙ код, работает и в браузере
+  catalog.ts            категории, единицы, тип Service
+  pricing.ts            формула расчёта, снимок условий, формат денег и времени
+  order-schema.ts       zod-схема заявки, телефон, окна времени
+  settings.ts           zod-схемы настроек компании
+  excluded.ts           поиск «чего не берём» в тексте
+  order-types.ts        статусы и публичный вид заявки
+  theme.ts              ключ и скрипт темы без вспышки
+src/lib/server/       только сервер (`import "server-only"`)
+  db, settings, services, orders, bonus, photos, session, auth, rate-limit, tokens, password, http
+src/app/api/          публичный API
+src/components/       ThemeSwitch
+tests/                vitest
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Публичный API
 
-## Deploy on Vercel
+Все ответы — `Cache-Control: no-store`; изменяющие запросы требуют заголовок `Origin` своего сайта. Ошибка —
+`{ error, code, fields? }`, где `fields` — `{ "поле": "сообщение" }` по-русски.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+| Маршрут | Назначение |
+|---|---|
+| `POST /api/uploads` (multipart, поле `file`) | фото → WebP ≤ 1600 px; `{ id, key, width, height, bytes }` |
+| `DELETE /api/uploads/[id]` + `X-Upload-Key` | удалить непривязанное фото |
+| `POST /api/orders` + `Idempotency-Key` (UUID) | создать заявку: `201 { number, token, url }`; повтор — `200` с теми же данными; тот же ключ с другим содержимым — `409` |
+| `GET /api/orders/[token]` | публичный вид заявки (тип `PublicOrder`), опрос раз в несколько секунд |
+| `POST /api/game/claim` `{ token }` | бонусный код за игру (один на заявку) |
+| `GET /api/admin/photos/[id]` | фото для владельца (cookie сеанса), иначе 401 |

@@ -39,7 +39,7 @@ async function Catalog() {
               <li key={s.id} className="flex items-baseline justify-between gap-4 py-3">
                 <span>
                   {s.title}
-                  {s.pricing !== "manual" && s.minutes > 0 && (
+                  {s.pricing === "fixed" && s.minutes > 0 && (
                     <span className="block text-[0.8125rem] text-muted">{formatMinutes(s.minutes)}</span>
                   )}
                 </span>

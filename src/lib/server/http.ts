@@ -37,7 +37,9 @@ export function api<C = unknown>(handler: (request: Request, ctx: C) => Promise<
           { status: e.status, headers: e.opts.headers },
         );
       }
-      console.error("[api]", request.method, new URL(request.url).pathname, e);
+      // в лог — только суть ошибки: объект ошибки драйвера может нести тексты запроса с персональными данными
+      const err = e as { name?: string; message?: string; code?: string };
+      console.error("[api]", request.method, new URL(request.url).pathname, err.name, err.code, err.message);
       return json({ error: "Что-то пошло не так. Повторите попытку чуть позже.", code: "internal" }, { status: 500 });
     }
   };
