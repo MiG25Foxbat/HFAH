@@ -28,7 +28,7 @@ async function Orders({ searchParams }: { searchParams: SearchParams }) {
   const raw = await searchParams;
   const query = parseOrderQuery(raw);
   const [{ rows, counts, hasMore, generatedAt }, newTotal] = await Promise.all([listOrders(query), countNewOrders()]);
-  const filtered = query.q !== "" || query.status !== "all" || query.period !== "all";
+  const filtered = query.q !== "" || query.status !== "all" || query.period !== "all" || query.org;
   const deleted = raw.deleted === "1";
 
   return (

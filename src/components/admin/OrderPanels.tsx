@@ -37,6 +37,7 @@ export function OrderHeader({ order }: { order: OrderDetail }) {
       <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-2">
         <h1 className="text-[1.625rem] font-semibold leading-tight tabular-nums">Заявка №&nbsp;{order.number}</h1>
         <StatusBadge status={order.status} />
+        {order.clientType === "organization" && <Tag tone="ply">Организация</Tag>}
       </div>
       <p className="mt-1 text-[0.875rem] text-muted">
         Поступила {formatDateTime(order.createdAt)}.{changed ? ` Изменена ${formatDateTime(order.updatedAt)}.` : ""}
@@ -64,7 +65,23 @@ export function ClientPanel({ order }: { order: OrderDetail }) {
     <Panel title="Адрес и пожелания">
       <Facts
         items={[
-          { term: "Адрес", value: order.address },
+          ...(order.clientType === "organization"
+            ? [
+                {
+                  term: "Заказчик",
+                  value: (
+                    <>
+                      <p className="font-medium">{order.orgName}</p>
+                      <p className="text-[0.9375rem]">
+                        <span className="text-muted">ИНН:</span> {order.orgInn ? <span className="tabular-nums">{order.orgInn}</span> : <span className="text-muted">не указан</span>}
+                      </p>
+                      <p className="text-[0.9375rem]">{order.wantsInvoice ? "Нужен счёт и закрывающие документы" : <span className="text-muted">Счёт не запрошен</span>}</p>
+                    </>
+                  ),
+                },
+              ]
+            : []),
+          { term: order.clientType === "organization" ? "Адрес офиса" : "Адрес", value: order.address },
           {
             term: "Подъезд, этаж, доступ",
             value: access.length ? (

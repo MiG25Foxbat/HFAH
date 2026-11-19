@@ -1,6 +1,6 @@
 "use client";
 /**
- * Stage — 3D-персонаж категории на подиуме-рулетке. Контракт: <Stage category characters className /> .
+ * Stage — 3D-персонаж категории на подиуме-рулетке. Контракт: <Stage category categories characters className /> .
  * Высоту и ширину задаёт родитель. Сама 3D-сцена (three, R3F) грузится лениво, только если есть WebGL;
  * до этого, при ошибке и без WebGL показывается постер. Заказ от 3D не зависит.
  */

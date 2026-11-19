@@ -5,7 +5,7 @@ import { saveCompanyAction } from "@/app/admin/actions";
 import { formatPhone } from "@/lib/admin/format";
 import { parseCompanyForm, type CompanyForm as Values } from "@/lib/admin/schemas";
 import type { Company } from "@/lib/settings";
-import { TextArea, TextField } from "./fields";
+import { Check, TextArea, TextField } from "./fields";
 import { Icon } from "./Icon";
 import { FormStatus, Panel, Spinner, button } from "./ui";
 import { useForm } from "./use-save";
@@ -32,10 +32,11 @@ export function CompanyForm({ initial }: { initial: Company }) {
     whatsapp: formatPhone(initial.contacts.whatsapp),
     email: initial.contacts.email,
   });
+  const [org, setOrg] = useState({ orgsEnabled: initial.orgsEnabled, invoiceEnabled: initial.invoiceEnabled, orgNote: initial.orgNote });
   const [rows, setRows] = useState<Row[]>(() =>
     initial.excluded.map((e, i) => ({ key: i, title: e.title, hint: e.hint, keywords: e.keywords.join(", ") })),
   );
-  const { pending, result, submit, error, formRef } = useForm(saveCompanyAction, parseCompanyForm, { base, rows });
+  const { pending, result, submit, error, formRef } = useForm(saveCompanyAction, parseCompanyForm, { base, org, rows });
 
   const field = (name: keyof typeof base) => ({
     value: base[name],
@@ -50,7 +51,7 @@ export function CompanyForm({ initial }: { initial: Company }) {
       noValidate
       onSubmit={(e) => {
         e.preventDefault();
-        const values: Values = { ...base, excluded: rows.map(({ title, hint, keywords }) => ({ title, hint, keywords })) };
+        const values: Values = { ...base, ...org, excluded: rows.map(({ title, hint, keywords }) => ({ title, hint, keywords })) };
         submit(values);
       }}
       className="grid gap-6"
@@ -82,6 +83,38 @@ export function CompanyForm({ initial }: { initial: Company }) {
           <TextField label="WhatsApp" name="whatsapp" type="tel" inputMode="tel" spellCheck={false} autoComplete="off" placeholder="+7 916 123-45-67" hint="Номер, на который можно написать." {...field("whatsapp")} />
           <TextField label="Telegram" name="telegram" spellCheck={false} autoComplete="off" placeholder="@zaprosto_master" hint="Имя пользователя или ссылка t.me." {...field("telegram")} />
           <TextField label="Почта" name="email" type="email" inputMode="email" spellCheck={false} autoComplete="off" placeholder="master@example.ru" {...field("email")} />
+        </div>
+      </Panel>
+
+      <Panel
+        id="orgs"
+        title="Работа с организациями"
+        description="Компании вызывают мастера в офисы. Здесь вы решаете, принимать ли такие заявки и работать ли по счёту."
+      >
+        <div className="grid gap-2">
+          <Check
+            label="Работаем с организациями"
+            hint="На сайте появится раздел «Для офисов», а при оформлении — выбор «Организация». Выключите, чтобы скрыть их."
+            checked={org.orgsEnabled}
+            onChange={(e) => setOrg((p) => ({ ...p, orgsEnabled: e.target.checked }))}
+          />
+          <Check
+            label="Оплата по счёту"
+            hint="Организация сможет отметить «Нужен счёт и закрывающие документы». Если выключить, отметки при оформлении не будет."
+            checked={org.invoiceEnabled}
+            onChange={(e) => setOrg((p) => ({ ...p, invoiceEnabled: e.target.checked }))}
+          />
+          <TextArea
+            wrapperClass="mt-2"
+            label="Условия для организаций"
+            name="orgNote"
+            rows={3}
+            maxLength={300}
+            value={org.orgNote}
+            onChange={(e) => setOrg((p) => ({ ...p, orgNote: e.target.value }))}
+            error={error("orgNote")}
+            hint={`Коротко: договор, оплата, документы. Показывается на странице «Для офисов» и при оформлении. ${org.orgNote.length} из 300.`}
+          />
         </div>
       </Panel>
 

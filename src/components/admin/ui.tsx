@@ -20,6 +20,11 @@ export function button(variant: keyof typeof BUTTON_VARIANT = "secondary", size:
   return cx(BUTTON_BASE, BUTTON_VARIANT[variant], size === "md" ? "min-h-12 px-5" : "min-h-11 px-4", extra);
 }
 
+/** Квадратная кнопка только со значком: зона касания 44×44. Подпись обязательна (aria-label). */
+export function iconButton(extra?: string) {
+  return cx(BUTTON_BASE, BUTTON_VARIANT.secondary, "size-11 shrink-0", extra);
+}
+
 export const inputClass =
   "block w-full min-h-12 scroll-mt-36 min-[900px]:scroll-mt-6 rounded-field border border-line bg-bg px-3.5 py-2.5 text-base text-ink placeholder:text-muted aria-[invalid=true]:border-danger disabled:opacity-60";
 

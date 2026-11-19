@@ -13,7 +13,7 @@ export function OrderFilters({
   query,
   counts,
 }: {
-  query: Pick<OrderQuery, "q" | "status" | "period">;
+  query: Pick<OrderQuery, "q" | "status" | "period" | "org">;
   counts: Record<OrderStatus, number>;
 }) {
   const router = useRouter();
@@ -29,16 +29,16 @@ export function OrderFilters({
     }
   }
 
-  const { status, period } = query;
+  const { status, period, org } = query;
   useEffect(() => {
     const value = text.trim();
     if (value === pushed) return;
     const t = setTimeout(() => {
       setPushed(value);
-      router.replace(ordersHref({ status, period, q: value }), { scroll: false });
+      router.replace(ordersHref({ status, period, org, q: value }), { scroll: false });
     }, 350);
     return () => clearTimeout(t);
-  }, [text, pushed, status, period, router]);
+  }, [text, pushed, status, period, org, router]);
 
   const total = ORDER_STATUSES.reduce((sum, s) => sum + counts[s], 0);
   const chips: { value: OrderQuery["status"]; label: string; n: number }[] = [
@@ -104,6 +104,19 @@ export function OrderFilters({
               </li>
             );
           })}
+          <li className="shrink-0">
+            <Link
+              href={ordersHref({ ...query, org: !query.org })}
+              aria-current={query.org ? "true" : undefined}
+              scroll={false}
+              className={cx(
+                "flex min-h-11 items-center rounded-full border px-4 text-[0.9375rem] transition-colors",
+                query.org ? "border-accent bg-accent text-accent-ink" : "border-line bg-surface hover:bg-surface-2",
+              )}
+            >
+              Только организации
+            </Link>
+          </li>
         </ul>
       </nav>
     </div>

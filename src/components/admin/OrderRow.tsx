@@ -30,9 +30,11 @@ export function OrderRow({ order: o }: { order: OrderListRow }) {
         </div>
         <div className="min-w-0 [grid-area:body]">
           <p className={cx("truncate", o.status === "new" ? "font-semibold" : "font-medium")}>{o.customerName}</p>
+          {o.clientType === "organization" && o.orgName && <p className="truncate text-[0.9375rem]">{o.orgName}</p>}
           <p className="truncate text-[0.9375rem] text-muted">{o.address}</p>
-          {(o.urgent || o.outOfTown || o.excludedCount > 0 || o.photoCount > 0) && (
+          {(o.clientType === "organization" || o.urgent || o.outOfTown || o.excludedCount > 0 || o.photoCount > 0) && (
             <p className="mt-1.5 flex flex-wrap gap-1.5">
+              {o.clientType === "organization" && <Tag tone="ply">Организация</Tag>}
               {o.urgent && <Tag tone="warn">Срочно</Tag>}
               {o.outOfTown && <Tag tone="warn">За городом</Tag>}
               {o.excludedCount > 0 && <Tag tone="warn">Есть то, что не берём</Tag>}

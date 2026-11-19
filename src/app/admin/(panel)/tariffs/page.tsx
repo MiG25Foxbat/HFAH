@@ -1,8 +1,10 @@
 import { Suspense } from "react";
-import { PageHeader, Panel } from "@/components/admin/ui";
-import { PricingForm, ServiceRow } from "@/components/admin/Tariffs";
-import { CATEGORIES } from "@/lib/catalog";
+import { CategoriesPanel } from "@/components/admin/Categories";
+import { PageHeader, Panel, Tag } from "@/components/admin/ui";
+import { AddService, PricingForm, ServiceRow } from "@/components/admin/Tariffs";
+import { MAX_CATEGORIES } from "@/lib/admin/catalog-forms";
 import { ensureOwner } from "@/lib/server/admin/guard";
+import { listCategories } from "@/lib/server/categories";
 import { listServices } from "@/lib/server/services";
 import { getSettings } from "@/lib/server/settings";
 
@@ -28,13 +30,15 @@ const FORMULA = [
 
 async function Tariffs() {
   await ensureOwner();
-  const [services, settings] = await Promise.all([listServices(), getSettings()]);
+  const [categories, services, settings] = await Promise.all([listCategories(), listServices(), getSettings()]);
+  const worksOf = (id: string) => services.filter((s) => s.category === id);
+  const categoryOptions = categories.map(({ id, title, active }) => ({ id, title, active }));
 
   return (
     <>
       <PageHeader
         title="Тарифы"
-        lead="Цены, нормы времени и памятки для выезда. Изменения действуют только для новых заявок: старые хранят цены на момент отправки."
+        lead="Категории и работы: добавляйте, переименовывайте, скрывайте, меняйте порядок и цены. Изменения действуют только для новых заявок: старые хранят состав и цены на момент отправки."
       />
       <div className="grid gap-6">
         <Panel title="Как считается цена" description="Один порядок для всех заявок. Материалы и запчасти в расчёт не входят — клиенту это сказано прямо.">
@@ -47,9 +51,11 @@ async function Tariffs() {
 
         <PricingForm initial={settings.pricing} />
 
+        <CategoriesPanel categories={categories.map((c) => ({ ...c, works: worksOf(c.id).length }))} max={MAX_CATEGORIES} />
+
         <nav aria-label="Категории работ">
           <ul className="flex flex-wrap gap-2">
-            {CATEGORIES.map((c) => (
+            {categories.map((c) => (
               <li key={c.id}>
                 <a href={`#cat-${c.id}`} className="flex min-h-11 items-center gap-2 rounded-full border border-line bg-surface px-4 text-[0.9375rem] hover:bg-surface-2">
                   <span aria-hidden className="size-2.5 rounded-full" style={{ background: c.color }} />
@@ -60,8 +66,8 @@ async function Tariffs() {
           </ul>
         </nav>
 
-        {CATEGORIES.map((c) => {
-          const items = services.filter((s) => s.category === c.id);
+        {categories.map((c) => {
+          const items = worksOf(c.id);
           return (
             <Panel
               key={c.id}
@@ -72,14 +78,17 @@ async function Tariffs() {
                   <span aria-hidden className="size-3 rounded-full" style={{ background: c.color }} />
                   {c.title}
                   <span className="text-[0.9375rem] font-normal text-muted">работ: {items.length}</span>
+                  {!c.active && <Tag tone="warn">Скрыта от клиентов</Tag>}
                 </span>
               }
             >
+              {items.length === 0 && <p className="mb-1 text-muted">В категории пока нет работ.</p>}
               <ul className="-my-4 divide-y divide-line">
-                {items.map((s) => (
-                  <ServiceRow key={s.id} service={s} hourRate={settings.pricing.hourRate} />
+                {items.map((s, i) => (
+                  <ServiceRow key={s.id} service={s} hourRate={settings.pricing.hourRate} categories={categoryOptions} index={i} count={items.length} />
                 ))}
               </ul>
+              <AddService categoryId={c.id} categoryTitle={c.title} />
             </Panel>
           );
         })}
