@@ -9,7 +9,7 @@
 import { useEffect, useRef, type ReactNode, type RefObject } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
-import type { CategoryId } from "@/lib/catalog";
+import type { CharacterKey } from "@/lib/catalog";
 import type { Activity } from "./activity";
 
 export type RigApi = {
@@ -21,17 +21,18 @@ export type RigApi = {
 
 export const DEFAULT_ELEV = 0.36;
 /**
- * Ракурс по умолчанию — поворот подиума вокруг вертикали, рад (минус — предмет поворачивается лицом влево). У смесителя излив
+ * Ракурс по умолчанию у каждого персонажа — поворот подиума вокруг вертикали, рад (минус — предмет поворачивается лицом влево). У смесителя излив
  * смотрит прямо на камеру и закрывает лицо, поэтому сантехника стоит в три четверти (−40°: излив уходит влево, лицо ближе к ключевому
  * свету сцены); остальные предметы симметричны и лучше всего читаются спереди. «Сбросить ракурс» и смена категории возвращают именно
  * к нему; первые пятна игры ставятся с этой стороны (grime.ts).
  */
-export const DEFAULT_YAW: Record<CategoryId, number> = {
+export const DEFAULT_YAW: Record<CharacterKey, number> = {
   furniture: 0,
   plumbing: -0.7,
   electrics: 0,
   repair: 0,
   other: 0,
+  appliances: 0,
 };
 const TAU = Math.PI * 2;
 /** Ближайший к yaw «оборот» цели: сброс не крутит лишний раз, а едет по кратчайшему пути. */
@@ -53,15 +54,18 @@ const rubber = (x: number) => OVERSHOOT * (1 - Math.exp(-x / OVERSHOOT));
 const softClamp = (v: number) => (v < ELEV_MIN ? ELEV_MIN - rubber(ELEV_MIN - v) : v > ELEV_MAX ? ELEV_MAX + rubber(v - ELEV_MAX) : v);
 
 export function Rig({
-  category,
+  viewKey,
+  homeYaw: home,
   apiRef,
   activity,
   reduced,
   groupRef,
   children,
 }: {
-  /** Категория на сцене: от неё зависит ракурс по умолчанию; при смене категории вид возвращается к нему. */
-  category: CategoryId;
+  /** Что на сцене (id категории): при смене вид возвращается к ракурсу по умолчанию. */
+  viewKey: string;
+  /** Ракурс по умолчанию персонажа (DEFAULT_YAW). */
+  homeYaw: number;
   apiRef: RefObject<RigApi | null>;
   activity: { current: Activity };
   reduced: boolean;
@@ -71,9 +75,9 @@ export function Rig({
   const gl = useThree((s) => s.gl);
   const invalidate = useThree((s) => s.invalidate);
   const reducedRef = useRef(reduced);
-  const homeYaw = useRef(DEFAULT_YAW[category]);
+  const homeYaw = useRef(home);
   const st = useRef({
-    yaw: DEFAULT_YAW[category],
+    yaw: home,
     yawVel: 0,
     elevRaw: DEFAULT_ELEV,
     dragging: false,
@@ -89,11 +93,11 @@ export function Rig({
   }, [reduced]);
 
   // Новая категория — новый ракурс по умолчанию; вид плавно (при reduced motion сразу) возвращается к нему.
-  const lastCategory = useRef(category);
+  const lastView = useRef(viewKey);
   useEffect(() => {
-    if (lastCategory.current === category) return;
-    lastCategory.current = category;
-    homeYaw.current = DEFAULT_YAW[category];
+    if (lastView.current === viewKey) return;
+    lastView.current = viewKey;
+    homeYaw.current = home;
     const s = st.current;
     s.yawVel = 0;
     if (reducedRef.current) {
@@ -103,7 +107,7 @@ export function Rig({
       s.resetting = true;
     }
     invalidate();
-  }, [category, invalidate]);
+  }, [viewKey, home, invalidate]);
 
   useEffect(() => {
     const el = gl.domElement;

@@ -7,13 +7,13 @@
 import dynamic from "next/dynamic";
 import { useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
 import { buttonClass } from "@/components/ui/controls";
-import type { CategoryId } from "@/lib/catalog";
+import { LEGACY_CATEGORY, type CharacterKey } from "@/lib/catalog";
 import type { BonusCodePublic } from "@/lib/order-types";
 import type { GameSettings } from "@/lib/settings";
 import { formatRub } from "@/lib/pricing";
 import { fetchOrder } from "./api";
 import { BonusCard } from "./BonusCard";
-import { orderCategory } from "./category";
+import { orderCharacter } from "./category";
 
 const GameDialog = dynamic(() => import("./GameDialog"), {
   ssr: false,
@@ -25,7 +25,7 @@ const GameDialog = dynamic(() => import("./GameDialog"), {
   ),
 });
 
-type Info = { category: CategoryId; bonus: BonusCodePublic | null; game: GameSettings | null };
+type Info = { character: CharacterKey; color: string; bonus: BonusCodePublic | null; game: GameSettings | null };
 
 // --- «Не сейчас»: запоминаем в localStorage по токену; если хранилища нет — хотя бы до перезагрузки ----------
 
@@ -94,7 +94,11 @@ export function GameOffer({ token, mode, facesEnabled = true }: { token: string;
     const ac = new AbortController();
     void fetchOrder(token, ac.signal).then((order) => {
       if (ac.signal.aborted) return;
-      setInfo(order ? { category: orderCategory(order.lines), bonus: order.bonus, game: order.game } : { category: "other", bonus: null, game: null });
+      setInfo(
+        order
+          ? { ...orderCharacter(order.lines), bonus: order.bonus, game: order.game }
+          : { character: "other", color: LEGACY_CATEGORY.other.color, bonus: null, game: null },
+      );
     });
     return () => ac.abort();
   }, [token, mode]);
@@ -156,7 +160,8 @@ export function GameOffer({ token, mode, facesEnabled = true }: { token: string;
         <GameDialog
           token={token}
           gameMode={mode}
-          category={info.category}
+          character={info.character}
+          color={info.color}
           bonus={bonus}
           facesEnabled={facesEnabled}
           onBonus={(b) => setInfo((i) => (i ? { ...i, bonus: b } : i))}

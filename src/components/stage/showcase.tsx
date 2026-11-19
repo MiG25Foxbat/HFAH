@@ -13,12 +13,12 @@ import { useEffect, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import * as SkeletonUtils from "three/addons/utils/SkeletonUtils.js";
-import { CATEGORIES, type CategoryId } from "@/lib/catalog";
+import type { CharacterKey } from "@/lib/catalog";
 import { clearCharacter, loadCharacter, peekCharacter, type CharacterAsset } from "./assets";
 import type { Activity } from "./activity";
 
 export type Phase = "loading" | "ready" | "error";
-export type PhaseHandler = (phase: Phase, category: CategoryId) => void;
+export type PhaseHandler = (phase: Phase, character: CharacterKey) => void;
 export type Anchors = { head: THREE.Vector3; eye: THREE.Vector3; valid: boolean };
 
 const TARGET_H = 1.6;
@@ -29,7 +29,7 @@ const SQUASH = { sy: 0.04, sxz: 1.25, y: -0.35 };
 
 type Pose = { sy: number; sxz: number; y: number; o: number };
 type Inst = {
-  category: CategoryId;
+  character: CharacterKey;
   pivot: THREE.Group;
   root: THREE.Group;
   mixer: THREE.AnimationMixer;
@@ -77,7 +77,7 @@ function applyFaces(inst: Inst, on: boolean) {
   for (const l of inst.lids) l.visible = on;
 }
 
-function instantiate(category: CategoryId, asset: CharacterAsset): Inst {
+function instantiate(character: CharacterKey, asset: CharacterAsset): Inst {
   const root = SkeletonUtils.clone(asset.scene) as THREE.Group;
   const owned = new Map<THREE.Material, THREE.Material>();
   const mats: THREE.Material[] = [];
@@ -116,7 +116,7 @@ function instantiate(category: CategoryId, asset: CharacterAsset): Inst {
   const lids = ["Lid_L", "Lid_R"].map((n) => root.getObjectByName(n)).filter((o): o is THREE.Object3D => !!o);
 
   const pivot = new THREE.Group();
-  pivot.name = `character-${category}`;
+  pivot.name = `character-${character}`;
   pivot.add(fit);
 
   const mixer = new THREE.AnimationMixer(root);
@@ -132,7 +132,7 @@ function instantiate(category: CategoryId, asset: CharacterAsset): Inst {
   };
 
   return {
-    category,
+    character,
     pivot,
     root,
     mixer,
@@ -161,7 +161,8 @@ function disposeInst(inst: Inst) {
 }
 
 export function Showcase({
-  category,
+  character,
+  preload,
   facesEnabled,
   reduced,
   retryToken,
@@ -169,7 +170,9 @@ export function Showcase({
   anchors,
   onPhase,
 }: {
-  category: CategoryId;
+  character: CharacterKey;
+  /** Персонажи, которых нужно догрузить после первого показа (по одному на каждую видимую категорию). */
+  preload: readonly CharacterKey[];
   facesEnabled: boolean;
   reduced: boolean;
   retryToken: number;
@@ -184,10 +187,11 @@ export function Showcase({
 
   const groupRef = useRef<THREE.Group>(null);
   const slots = useRef<Inst[]>([]);
-  const pool = useRef(new Map<CategoryId, Inst>());
-  const seen = useRef(new Set<CategoryId>());
+  const pool = useRef(new Map<CharacterKey, Inst>());
+  const seen = useRef(new Set<CharacterKey>());
   const flags = useRef({ faces: facesEnabled, reduced });
   const onPhaseRef = useRef(onPhase);
+  const preloadRef = useRef(preload);
   const handledRetry = useRef(0);
   const preloadStarted = useRef(false);
   const alive = useRef(false);
@@ -195,6 +199,7 @@ export function Showcase({
 
   useEffect(() => {
     onPhaseRef.current = onPhase;
+    preloadRef.current = preload;
   });
 
   useEffect(() => {
@@ -245,13 +250,13 @@ export function Showcase({
       i.pivot.scale.set(1, 1, 1);
       i.pivot.position.y = 0;
       setOpacity(i, 1);
-      if (pool.current.has(i.category)) disposeInst(i);
-      else pool.current.set(i.category, i);
+      if (pool.current.has(i.character)) disposeInst(i);
+      else pool.current.set(i.character, i);
     };
     releaseRef.current = release;
 
-    const mount = (cat: CategoryId, asset: CharacterAsset) => {
-      let inst = list.find((s) => s.category === cat);
+    const mount = (cat: CharacterKey, asset: CharacterAsset) => {
+      let inst = list.find((s) => s.character === cat);
       if (inst && inst.phase !== "out") return;
       if (inst) {
         begin(inst, "in", snapshot(inst)); // оживляем уходящего с текущего положения
@@ -296,14 +301,14 @@ export function Showcase({
         else setTimeout(resolve, 200);
       });
 
-    // После первого показа: догружаем остальные четыре модели и прогреваем шейдеры.
+    // После первого показа: догружаем остальные модели и прогреваем шейдеры.
     const preloadRest = async () => {
-      for (const { id } of CATEGORIES) {
+      for (const id of preloadRef.current) {
         try {
           const asset = await loadCharacter(id);
           await idle();
           if (!alive.current) return;
-          if (pool.current.has(id) || list.some((s) => s.category === id)) continue;
+          if (pool.current.has(id) || list.some((s) => s.character === id)) continue;
           const inst = instantiate(id, asset);
           inst.mixer.stopAllAction();
           applyFaces(inst, flags.current.faces);
@@ -326,29 +331,29 @@ export function Showcase({
 
     if (retryToken !== handledRetry.current) {
       handledRetry.current = retryToken;
-      clearCharacter(category);
+      clearCharacter(character);
     }
-    const hit = peekCharacter(category);
+    const hit = peekCharacter(character);
     if (hit) {
-      mount(category, hit);
-      onPhaseRef.current("ready", category);
+      mount(character, hit);
+      onPhaseRef.current("ready", character);
     } else {
-      onPhaseRef.current("loading", category);
-      loadCharacter(category).then(
+      onPhaseRef.current("loading", character);
+      loadCharacter(character).then(
         (asset) => {
           if (cancelled || !alive.current) return; // побеждает последний выбор
-          mount(category, asset);
-          onPhaseRef.current("ready", category);
+          mount(character, asset);
+          onPhaseRef.current("ready", character);
         },
         () => {
-          if (!cancelled) onPhaseRef.current("error", category);
+          if (!cancelled) onPhaseRef.current("error", character);
         },
       );
     }
     return () => {
       cancelled = true;
     };
-  }, [category, retryToken, gl, scene, camera, invalidate, anchors]);
+  }, [character, retryToken, gl, scene, camera, invalidate, anchors]);
 
   useFrame((state, delta) => {
     const dt = Math.min(delta, 0.05);
@@ -384,8 +389,8 @@ export function Showcase({
             setOpacity(i, 1);
             i.nextBlink = now + (reducedNow ? rand(8, 14) : rand(3, 7));
             i.nextWave = now + rand(18, 32);
-            if (!seen.current.has(i.category)) {
-              seen.current.add(i.category);
+            if (!seen.current.has(i.character)) {
+              seen.current.add(i.character);
               if (!reducedNow) i.wave?.reset().play(); // приветствие — один раз на категорию
             }
           } else {

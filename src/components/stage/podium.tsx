@@ -4,14 +4,13 @@
 import { useEffect, useMemo, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
-import { CATEGORIES, type CategoryId } from "@/lib/catalog";
 import type { StageColors } from "./colors";
 import type { Activity } from "./activity";
 
 export const PODIUM_R = 1.2;
 const BASE_H = 0.16;
 const TICKS = 120;
-const STEP = (Math.PI * 2) / CATEGORIES.length;
+const TICK_STEP = (Math.PI * 2) / TICKS;
 
 function drawTape(canvas: HTMLCanvasElement, ply: string, ink: string, accent: string, family: string) {
   const ctx = canvas.getContext("2d");
@@ -90,12 +89,18 @@ function drawTape(canvas: HTMLCanvasElement, ply: string, ink: string, accent: s
 }
 
 export function Podium({
-  category,
+  index,
+  count,
+  color,
   colors,
   reduced,
   activity,
 }: {
-  category: CategoryId;
+  /** Номер выбранной категории и общее число категорий: кольцо делится поровну, отметка встаёт на нужное деление. */
+  index: number;
+  count: number;
+  /** Цвет категории: ободок подиума. */
+  color: string;
   colors: StageColors;
   reduced: boolean;
   activity: { current: Activity };
@@ -140,18 +145,18 @@ export function Podium({
   useEffect(() => {
     const ring = ringRef.current;
     if (!ring) return;
-    const idx = CATEGORIES.findIndex((c) => c.id === category);
-    const t = idx * STEP;
+    // угол категории — на ближайшее деление ленты (120 делений), чтобы отметка не стояла между штрихами
+    const t = Math.round((Math.max(0, index) * Math.PI * 2) / Math.max(1, count) / TICK_STEP) * TICK_STEP;
     // Кратчайший путь: цель в пределах половины оборота от текущего угла.
     const k = Math.round((ring.rotation.y - t) / (Math.PI * 2));
     ringTarget.current = t + k * Math.PI * 2;
-    rimTarget.set(colors.cats[category]);
+    rimTarget.set(color);
     if (reduced) {
       ring.rotation.y = ringTarget.current;
       rimRef.current?.color.copy(rimTarget);
     }
     invalidate();
-  }, [category, colors.cats, reduced, rimTarget, invalidate]);
+  }, [index, count, color, reduced, rimTarget, invalidate]);
 
   useFrame((_, delta) => {
     const ring = ringRef.current;
@@ -184,7 +189,7 @@ export function Podium({
       </group>
       <mesh rotation-x={Math.PI / 2} position-y={0.004}>
         <torusGeometry args={[PODIUM_R - 0.012, 0.016, 8, 96]} />
-        <meshStandardMaterial ref={rimRef} color={colors.cats[category]} roughness={0.55} />
+        <meshStandardMaterial ref={rimRef} color={color} roughness={0.55} />
       </mesh>
       {/* Неподвижная отметка: показывает, какое деление «выбрано». */}
       <mesh position={[0, 0.03, PODIUM_R - 0.1]} rotation-x={-Math.PI / 2}>

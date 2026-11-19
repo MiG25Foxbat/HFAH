@@ -55,10 +55,10 @@ async function Catalog() {
             {filled.map((g) => (
               <li key={g.id} className="shrink-0">
                 <a
-                  href={`#${g.id}`}
+                  href={`#c-${g.id}`}
                   className="inline-flex min-h-12 items-center gap-2 rounded-full border border-line bg-surface px-4 font-medium transition-colors hover:bg-surface-2 min-[900px]:w-full min-[900px]:rounded-field"
                 >
-                  <span aria-hidden="true" className="size-3 shrink-0 rounded-full" style={{ background: `var(--cat-${g.id})` }} />
+                  <span aria-hidden="true" className="size-3 shrink-0 rounded-full" style={{ background: g.color }} />
                   {g.title}
                   <span className="ml-auto pl-2 text-[0.875rem] font-normal text-muted tabular-nums max-[899px]:hidden">{g.services.length}</span>
                 </a>
@@ -156,9 +156,9 @@ function Factor({ name, value, children }: { name: string; value?: string; child
 
 function CategorySection({ group, pricing }: { group: ShopGroup; pricing: PricingSettings }) {
   return (
-    <section id={group.id} aria-labelledby={`h-${group.id}`}>
+    <section id={`c-${group.id}`} aria-labelledby={`h-${group.id}`}>
       <h2 id={`h-${group.id}`} className="flex items-center gap-3 text-[1.625rem] font-semibold">
-        <span aria-hidden="true" className="size-3 rounded-full" style={{ background: `var(--cat-${group.id})` }} />
+        <span aria-hidden="true" className="size-3 rounded-full" style={{ background: group.color }} />
         {group.title}
       </h2>
       <ul className="mt-1 divide-y divide-line">

@@ -5,7 +5,7 @@ import { Button, ButtonLink, TextField } from "@/components/ui/controls";
 import { SearchIcon } from "@/components/ui/icons";
 import { cartSnapshot } from "@/lib/cart";
 import { useCart } from "@/lib/cart-store";
-import { CATEGORIES, UNIT_LABEL, categoryTitle, type CategoryId, type Service } from "@/lib/catalog";
+import { UNIT_LABEL, type CategoryId, type Service } from "@/lib/catalog";
 import { worksCount } from "@/lib/format";
 import { formatMinutes, formatRub, type PricingSettings } from "@/lib/pricing";
 import { excludedInQuery, searchServices } from "@/lib/shop";
@@ -15,8 +15,6 @@ import { openCart } from "@/lib/ui-store";
 import { AddSheet } from "./AddSheet";
 import { ExcludedList, ExcludedNote } from "./ExcludedNote";
 import { MATERIALS_NOTE } from "./PriceSummary";
-
-const colorOf = (id: CategoryId) => `var(--cat-${id})`;
 
 interface Props {
   groups: ShopGroup[];
@@ -33,6 +31,8 @@ interface Props {
 
 export function Storefront({ groups, pricing, excluded, characters, slogan, initialCategory, initialAdd, initialCart }: Props) {
   const all = useMemo(() => groups.flatMap((g) => g.services), [groups]);
+  const groupById = useMemo(() => new Map(groups.map((g) => [g.id, g])), [groups]);
+  const stageCategories = useMemo(() => groups.map(({ id, color, character }) => ({ id, color, character })), [groups]);
   const byId = useMemo(() => new Map(all.map((s) => [s.id, s])), [all]);
 
   // состояние берётся из адреса при приходе на страницу (в том числе по ссылке с другой страницы) и дальше живёт в браузере
@@ -40,6 +40,8 @@ export function Storefront({ groups, pricing, excluded, characters, slogan, init
   const addService = initialAdd ? byId.get(initialAdd) : undefined;
   const [seen, setSeen] = useState(propsKey);
   const [category, setCategory] = useState<CategoryId>(addService?.category ?? initialCategory);
+  // выбранная категория могла скрыться или быть удалена: тогда показываем первую
+  const current = groupById.get(category) ?? groups[0];
   const [adding, setAdding] = useState<Service | null>(addService ?? null);
   const [query, setQuery] = useState("");
   if (seen !== propsKey) {
@@ -66,15 +68,24 @@ export function Storefront({ groups, pricing, excluded, characters, slogan, init
     window.history.replaceState(null, "", url);
   };
 
-  const results = useMemo(() => searchServices(all, query), [all, query]);
+  const results = useMemo(() => searchServices(all, query, (id) => groupById.get(id)?.title ?? id), [all, query, groupById]);
   const excludedHit = useMemo(() => excludedInQuery(excluded, query), [excluded, query]);
   const searching = query.trim().length > 0;
+
+  if (!current) {
+    return (
+      <div className="mx-auto w-full max-w-[1200px] px-4 pb-6 pt-5">
+        <h1 className="font-display text-[clamp(1.625rem,5vw,3rem)] leading-[1.15]">Мастер на час</h1>
+        <p className="mt-4 text-muted">Прайс скоро появится: компания ещё не добавила работы.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto w-full max-w-[1200px] px-4 pb-6 min-[900px]:grid min-[900px]:grid-cols-[5fr_7fr] min-[900px]:gap-10">
       <div className="min-[900px]:sticky min-[900px]:top-[calc(var(--header-h)+1rem)] min-[900px]:h-[calc(100dvh-var(--header-h)-2rem)] min-[900px]:self-start">
         <div className="relative h-[44vh] min-h-[260px] overflow-hidden rounded-panel bg-surface-2 min-[900px]:h-full">
-          <Stage category={category} characters={characters} className="size-full" />
+          <Stage category={current} categories={stageCategories} characters={characters} className="size-full" />
         </div>
       </div>
 
@@ -86,8 +97,8 @@ export function Storefront({ groups, pricing, excluded, characters, slogan, init
 
         <div className="sticky top-(--header-h) z-20 -mx-4 mt-3 bg-bg/90 px-4 py-2 backdrop-blur">
           <div role="group" aria-label="Категории работ" className="no-scrollbar -mx-4 flex snap-x gap-2 overflow-x-auto px-4">
-            {CATEGORIES.map((c) => {
-              const active = c.id === category && !searching;
+            {groups.map((c) => {
+              const active = c.id === current.id && !searching;
               return (
                 <button
                   key={c.id}
@@ -101,7 +112,7 @@ export function Storefront({ groups, pricing, excluded, characters, slogan, init
                     active ? "border-accent bg-accent text-accent-ink" : "border-line bg-surface hover:bg-surface-2"
                   }`}
                 >
-                  <span aria-hidden="true" className="size-3 rounded-full ring-2 ring-surface" style={{ background: colorOf(c.id) }} />
+                  <span aria-hidden="true" className="size-3 rounded-full ring-2 ring-surface" style={{ background: c.color }} />
                   {c.title}
                 </button>
               );
@@ -139,16 +150,16 @@ export function Storefront({ groups, pricing, excluded, characters, slogan, init
               )}
               <ul className="divide-y divide-line">
                 {results.map((s) => (
-                  <ServiceRow key={s.id} s={s} pricing={pricing} showCategory onAdd={() => setAdding(s)} />
+                  <ServiceRow key={s.id} s={s} pricing={pricing} category={groupById.get(s.category)} onAdd={() => setAdding(s)} />
                 ))}
               </ul>
             </section>
           ) : null}
 
           {groups.map((g) => (
-            <section key={g.id} id={g.id} hidden={searching || g.id !== category} aria-labelledby={`h-${g.id}`}>
+            <section key={g.id} id={`c-${g.id}`} hidden={searching || g.id !== current.id} aria-labelledby={`h-${g.id}`}>
               <h2 id={`h-${g.id}`} className="flex items-center gap-3 pt-3 text-[1.625rem] font-semibold max-[899px]:sr-only">
-                <span aria-hidden="true" className="size-3 rounded-full" style={{ background: colorOf(g.id) }} />
+                <span aria-hidden="true" className="size-3 rounded-full" style={{ background: g.color }} />
                 {g.title}
               </h2>
               <ul className="divide-y divide-line">
@@ -171,17 +182,17 @@ export function Storefront({ groups, pricing, excluded, characters, slogan, init
   );
 }
 
-function ServiceRow({ s, pricing, showCategory = false, onAdd }: { s: Service; pricing: PricingSettings; showCategory?: boolean; onAdd: () => void }) {
+function ServiceRow({ s, pricing, category, onAdd }: { s: Service; pricing: PricingSettings; category?: { title: string; color: string }; onAdd: () => void }) {
   const { lines } = useCart();
   const inCart = lines.filter((l) => l.serviceId === s.id).reduce((sum, l) => sum + l.qty, 0);
   const price = s.pricing === "manual" ? "По фото" : `${formatRub(s.pricing === "hourly" ? pricing.hourRate : (s.price as number))} за ${UNIT_LABEL[s.unit]}`;
   return (
     <li className="grid grid-cols-[1fr_auto] items-center gap-x-4 py-4">
       <div className="min-w-0">
-        {showCategory && (
+        {category && (
           <span className="mb-0.5 flex items-center gap-1.5 text-[0.8125rem] text-muted">
-            <span aria-hidden="true" className="size-2.5 rounded-full" style={{ background: colorOf(s.category) }} />
-            {categoryTitle(s.category)}
+            <span aria-hidden="true" className="size-2.5 rounded-full" style={{ background: category.color }} />
+            {category.title}
           </span>
         )}
         <h3 className="font-medium leading-snug">{s.title}</h3>

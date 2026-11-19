@@ -6,7 +6,7 @@
 import { Component, useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { Button, IconButton } from "@/components/ui/controls";
 import { AlertIcon, CloseIcon } from "@/components/ui/icons";
-import type { CategoryId } from "@/lib/catalog";
+import type { CharacterKey } from "@/lib/catalog";
 import type { BonusCodePublic } from "@/lib/order-types";
 import { CHARACTER_NAME } from "@/lib/phrases";
 import type { RigApi } from "@/components/stage/rig";
@@ -18,7 +18,9 @@ import type { Mode } from "./session";
 export type GameDialogProps = {
   token: string;
   gameMode: "play" | "bonus";
-  category: CategoryId;
+  /** Персонаж и цвет подиума: из снимка заявки. */
+  character: CharacterKey;
+  color: string;
   /** Уже выданный по этой заявке код (повторная игра нового не даёт). */
   bonus: BonusCodePublic | null;
   facesEnabled: boolean;
@@ -49,7 +51,7 @@ const MODES: { id: Mode; label: string }[] = [
   { id: "rotate", label: "Поворот" },
 ];
 
-export default function GameDialog({ token, gameMode, category, bonus, facesEnabled, onBonus, onClose }: GameDialogProps) {
+export default function GameDialog({ token, gameMode, character, color, bonus, facesEnabled, onBonus, onClose }: GameDialogProps) {
   const titleId = useId();
   const hintId = useId();
   const progressId = useId();
@@ -133,7 +135,7 @@ export default function GameDialog({ token, gameMode, category, bonus, facesEnab
     e.preventDefault();
   };
 
-  const name = CHARACTER_NAME[category];
+  const name = CHARACTER_NAME[character];
 
   return (
     <dialog
@@ -165,7 +167,8 @@ export default function GameDialog({ token, gameMode, category, bonus, facesEnab
         >
           <SceneBoundary key={boundaryKey} onError={() => setPhase("error")}>
             <GameScene
-              category={category}
+              character={character}
+              color={color}
               facesEnabled={facesEnabled}
               mode={mode}
               round={round}

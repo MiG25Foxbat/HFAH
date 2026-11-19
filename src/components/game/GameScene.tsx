@@ -7,19 +7,21 @@
 import { useEffect, useRef, type RefObject } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
-import type { CategoryId } from "@/lib/catalog";
+import type { CharacterKey } from "@/lib/catalog";
 import { clearCharacter, loadCharacter } from "@/components/stage/assets";
 import { createActivity, type Activity } from "@/components/stage/activity";
 import { useReducedMotion, useStageColors } from "@/components/stage/colors";
 import { Lights } from "@/components/stage/lights";
 import { Ground, Podium } from "@/components/stage/podium";
-import { Rig, type RigApi } from "@/components/stage/rig";
+import { DEFAULT_YAW, Rig, type RigApi } from "@/components/stage/rig";
 import { Session, type Mode } from "./session";
 
 export type ScenePhase = "loading" | "ready" | "error";
 
 export type GameSceneProps = {
-  category: CategoryId;
+  character: CharacterKey;
+  /** Цвет ободка подиума (цвет категории из снимка заявки). */
+  color: string;
   facesEnabled: boolean;
   mode: Mode;
   /** Новая партия: новые пятна. */
@@ -66,7 +68,7 @@ function Driver({ activity }: { activity: { current: Activity } }) {
 }
 
 function Player({
-  category,
+  character,
   facesEnabled,
   mode,
   round,
@@ -102,15 +104,15 @@ function Player({
     const group = groupRef.current;
     if (retryToken !== handledRetry.current) {
       handledRetry.current = retryToken;
-      clearCharacter(category);
+      clearCharacter(character);
     }
     latest.current.onPhase("loading");
-    loadCharacter(category).then(
+    loadCharacter(character).then(
       async (asset) => {
         if (cancelled || !group) return;
         try {
           made = await Session.create({
-            category,
+            category: character,
             asset,
             faces: latest.current.faces,
             reduced: latest.current.reduced,
@@ -157,7 +159,7 @@ function Player({
       }
       if (session.current === made) session.current = null;
     };
-  }, [category, round, retryToken, gl, camera, invalidate, apiRef, ringRef]);
+  }, [character, round, retryToken, gl, camera, invalidate, apiRef, ringRef]);
 
   useFrame((_, delta) => {
     const s = session.current;
@@ -192,8 +194,8 @@ export default function GameScene(props: GameSceneProps) {
     >
       <A11y label={label} />
       <Lights dark={colors.dark} />
-      <Rig category={props.category} apiRef={props.apiRef} activity={activity} reduced={reduced} groupRef={rigGroup}>
-        <Podium category={props.category} colors={colors} reduced={reduced} activity={activity} />
+      <Rig viewKey={props.character} homeYaw={DEFAULT_YAW[props.character]} apiRef={props.apiRef} activity={activity} reduced={reduced} groupRef={rigGroup}>
+        <Podium index={0} count={1} color={props.color} colors={colors} reduced={reduced} activity={activity} />
         <Player {...rest} reduced={reduced} activity={activity} />
       </Rig>
       <Ground dark={colors.dark} />

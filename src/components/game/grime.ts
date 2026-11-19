@@ -10,7 +10,7 @@
 import * as THREE from "three";
 import { MeshSurfaceSampler } from "three/addons/math/MeshSurfaceSampler.js";
 import { DEFAULT_ELEV, DEFAULT_YAW } from "@/components/stage/rig";
-import type { CategoryId } from "@/lib/catalog";
+import type { CharacterKey } from "@/lib/catalog";
 import type { Reach } from "./reach";
 
 export const MASK_SIZE = 512;
@@ -40,6 +40,7 @@ const KIND_WEIGHTS: Record<string, [Kind, number][]> = {
   electrics: [["rust", 4], ["scale", 3], ["grime", 3]],
   repair: [["rust", 4], ["scale", 3], ["grime", 3]],
   other: [["rust", 5], ["scale", 3], ["grime", 2]],
+  appliances: [["scale", 4], ["grime", 4], ["rust", 2]],
 };
 
 const rgba = (hex: string, a: number) => {
@@ -139,7 +140,7 @@ export function generateSpots(category: string, body: THREE.Mesh, parts: THREE.M
   const kinds = KIND_WEIGHTS[category] ?? KIND_WEIGHTS.other;
   const kindTotal = kinds.reduce((s, [, w]) => s + w, 0);
   // Подиум повёрнут на DEFAULT_YAW, а viewDir — направление к камере в системе модели: у модели этот угол со знаком минус.
-  const homeYaw = DEFAULT_YAW[category as CategoryId] ?? 0;
+  const homeYaw = DEFAULT_YAW[category as CharacterKey] ?? 0;
   const front = viewDir(-homeYaw, DEFAULT_ELEV, new THREE.Vector3());
   const back = viewDir(Math.PI - homeYaw, DEFAULT_ELEV, new THREE.Vector3());
   const spots: Spot[] = [];

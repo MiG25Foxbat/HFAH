@@ -6,21 +6,27 @@
  */
 import dynamic from "next/dynamic";
 import { Component, useCallback, useEffect, useId, useRef, useState, useSyncExternalStore, type KeyboardEvent, type ReactNode } from "react";
-import { CATEGORIES, type CategoryId } from "@/lib/catalog";
+import type { CharacterKey } from "@/lib/catalog";
 import type { Settings } from "@/lib/settings";
 import { CHARACTER_NAME, pickPhrase } from "@/lib/phrases";
 import type { RigApi } from "./rig";
 import type { Phase } from "./showcase";
+import type { StageCategory } from "./types";
+
+export type { StageCategory } from "./types";
 
 const StageScene = dynamic(() => import("./scene"), { ssr: false });
 
 export type StageProps = {
-  category: CategoryId;
+  /** Выбранная категория: персонаж и цвет ободка подиума. */
+  category: StageCategory;
+  /** Все видимые категории по порядку: по их числу делится кольцо подиума. */
+  categories: readonly StageCategory[];
   characters: Settings["characters"];
   className?: string;
 };
 
-const posterUrl = (id: CategoryId) => `/posters/${id}.webp`;
+const posterUrl = (character: CharacterKey) => `/posters/${character}.webp`;
 const BUBBLE_MS = 6000;
 
 // --- среда ---------------------------------------------------------------------------------------
@@ -76,10 +82,10 @@ class StageBoundary extends Component<{ onError: (e: Error) => void; children: R
 // --- постер ----------------------------------------------------------------------------------------
 
 /** Постер из Blender; если файла нет — спокойная CSS-заглушка в цвете категории. */
-function Poster({ category, decorative }: { category: CategoryId; decorative: boolean }) {
-  const [failed, setFailed] = useState<CategoryId | null>(null);
-  if (failed === category) {
-    const c = `var(--cat-${category})`;
+function Poster({ character, color, decorative }: { character: CharacterKey; color: string; decorative: boolean }) {
+  const [failed, setFailed] = useState<CharacterKey | null>(null);
+  if (failed === character) {
+    const c = color;
     return (
       <div
         aria-hidden
@@ -101,15 +107,15 @@ function Poster({ category, decorative }: { category: CategoryId; decorative: bo
   return (
     // eslint-disable-next-line @next/next/no-img-element -- постер маленький, уже оптимизирован в Blender; оптимизатор Next не нужен
     <img
-      src={posterUrl(category)}
-      alt={decorative ? "" : `Персонаж: ${CHARACTER_NAME[category]}`}
+      src={posterUrl(character)}
+      alt={decorative ? "" : `Персонаж: ${CHARACTER_NAME[character]}`}
       width={1024}
       height={1024}
       decoding="async"
       fetchPriority="high"
       draggable={false}
       className="h-full w-full object-contain"
-      onError={() => setFailed(category)}
+      onError={() => setFailed(character)}
     />
   );
 }
@@ -123,7 +129,8 @@ const ResetIcon = () => (
 
 // --- Stage -----------------------------------------------------------------------------------------
 
-export function Stage({ category, characters, className }: StageProps) {
+export function Stage({ category, categories, characters, className }: StageProps) {
+  const character = category.character;
   const webgl = useSyncExternalStore(noopSubscribe, hasWebGL, () => null);
   const hidden = useSyncExternalStore(subscribeHidden, () => document.hidden, () => false);
   const hintId = useId();
@@ -133,7 +140,7 @@ export function Stage({ category, characters, className }: StageProps) {
   const apiRef = useRef<RigApi | null>(null);
 
   const [inView, setInView] = useState(true);
-  const [status, setStatus] = useState<{ phase: Phase; category: CategoryId }>({ phase: "loading", category });
+  const [status, setStatus] = useState<{ phase: Phase; character: CharacterKey }>({ phase: "loading", character });
   const [everReady, setEverReady] = useState(false);
   const [retryToken, setRetryToken] = useState(0);
   const [boundaryKey, setBoundaryKey] = useState(0);
@@ -141,9 +148,9 @@ export function Stage({ category, characters, className }: StageProps) {
 
   // Реплика: новая на каждую смену категории; seed меняем прямо при рендере (допустимый шаблон «состояние от пропса»).
   const [seed, setSeed] = useState(0);
-  const [seenCategory, setSeenCategory] = useState(category);
-  if (seenCategory !== category) {
-    setSeenCategory(category);
+  const [seenCategory, setSeenCategory] = useState(category.id);
+  if (seenCategory !== category.id) {
+    setSeenCategory(category.id);
     setSeed((s) => s + 1);
   }
   const [dismissed, setDismissed] = useState("");
@@ -156,20 +163,20 @@ export function Stage({ category, characters, className }: StageProps) {
     return () => io.disconnect();
   }, []);
 
-  const handlePhase = useCallback((phase: Phase, c: CategoryId) => {
-    setStatus({ phase, category: c });
+  const handlePhase = useCallback((phase: Phase, c: CharacterKey) => {
+    setStatus({ phase, character: c });
     if (phase === "ready") setEverReady(true);
   }, []);
 
-  const phase: Phase = status.category === category ? status.phase : "loading";
+  const phase: Phase = status.character === character ? status.phase : "loading";
   const unavailableByGl = webgl === false || (crash !== null && /webgl/i.test(crash.message));
   const failed = !unavailableByGl && (phase === "error" || crash !== null);
   const live = webgl === true && !unavailableByGl && !failed;
   const interactive = live && everReady;
   const showSpinner = useDelayed(live && phase === "loading", 300);
 
-  const phraseKey = `${category}:${seed}`;
-  const text = pickPhrase(category, characters.personality, seed);
+  const phraseKey = `${category.id}:${seed}`;
+  const text = pickPhrase(character, characters.personality, seed);
   const bubbleShown = interactive && phase === "ready" && characters.phrasesEnabled && dismissed !== phraseKey;
   useEffect(() => {
     if (!bubbleShown) return;
@@ -180,11 +187,11 @@ export function Stage({ category, characters, className }: StageProps) {
   // Постеры остальных категорий греем после первого показа, чтобы переключение было мгновенным и без WebGL.
   useEffect(() => {
     if (!everReady) return;
-    for (const c of CATEGORIES) new Image().src = posterUrl(c.id);
-  }, [everReady]);
+    for (const c of new Set(categories.map((x) => x.character))) new Image().src = posterUrl(c);
+  }, [everReady, categories]);
 
   const retry = () => {
-    setStatus({ phase: "loading", category });
+    setStatus({ phase: "loading", character });
     setRetryToken((t) => t + 1);
     if (crash) {
       setCrash(null);
@@ -218,7 +225,7 @@ export function Stage({ category, characters, className }: StageProps) {
     e.preventDefault();
   };
 
-  const name = CHARACTER_NAME[category];
+  const name = CHARACTER_NAME[character];
   const posterShown = !everReady || !live;
 
   return (
@@ -229,7 +236,7 @@ export function Stage({ category, characters, className }: StageProps) {
       aria-describedby={hintId}
       tabIndex={interactive ? 0 : -1}
       onKeyDown={onKeyDown}
-      data-stage={category}
+      data-stage={character}
       data-stage-state={unavailableByGl ? "no-webgl" : failed ? "error" : interactive ? "ready" : "loading"}
       style={{ touchAction: "pan-y pinch-zoom", WebkitTouchCallout: "none" }}
       className={`relative isolate select-none overflow-hidden rounded-[var(--radius-panel)] bg-surface-2 outline-offset-[-3px] ${
@@ -248,7 +255,7 @@ export function Stage({ category, characters, className }: StageProps) {
         aria-hidden={posterShown ? undefined : true}
       >
         <div className="flex h-full w-full items-center justify-center">
-          <Poster category={category} decorative={live} />
+          <Poster character={character} color={category.color} decorative={live} />
         </div>
       </div>
 
@@ -257,6 +264,7 @@ export function Stage({ category, characters, className }: StageProps) {
           <StageBoundary key={boundaryKey} onError={setCrash}>
             <StageScene
               category={category}
+              categories={categories}
               characters={characters}
               active={inView && !hidden}
               retryToken={retryToken}

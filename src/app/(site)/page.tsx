@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { LocalBusinessJsonLd } from "@/components/seo/LocalBusinessJsonLd";
 import { Storefront } from "@/components/shop/Storefront";
-import { CATEGORIES, type CategoryId } from "@/lib/catalog";
 import { getShopData } from "@/lib/shop-data";
 
 export const metadata: Metadata = {
@@ -11,7 +10,6 @@ export const metadata: Metadata = {
   alternates: { canonical: "/" },
 };
 
-const isCategory = (v: unknown): v is CategoryId => CATEGORIES.some((c) => c.id === v);
 const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
 
 export default function HomePage({ searchParams }: PageProps<"/">) {
@@ -38,7 +36,7 @@ async function Home({ searchParams }: Pick<PageProps<"/">, "searchParams">) {
       excluded={settings.company.excluded}
       characters={settings.characters}
       slogan={settings.company.accent}
-      initialCategory={isCategory(c) ? c : "furniture"}
+      initialCategory={groups.find((g) => g.id === c)?.id ?? groups[0]?.id ?? ""}
       initialAdd={first(sp.add) ?? null}
       initialCart={first(sp.cart) === "1"}
     />

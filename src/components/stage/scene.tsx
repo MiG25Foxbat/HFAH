@@ -4,17 +4,19 @@
 import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
-import type { CategoryId } from "@/lib/catalog";
+import type { StageCategory } from "./types";
 import type { Characters } from "@/lib/settings";
 import { createActivity, type Activity } from "./activity";
 import { useReducedMotion, useStageColors } from "./colors";
 import { Lights } from "./lights";
 import { Ground, Podium } from "./podium";
-import { Rig, type RigApi } from "./rig";
+import { DEFAULT_YAW, Rig, type RigApi } from "./rig";
 import { Showcase, type Anchors, type PhaseHandler } from "./showcase";
 
 export type SceneProps = {
-  category: CategoryId;
+  category: StageCategory;
+  /** Все видимые категории по порядку: кольцо подиума делится по их числу. */
+  categories: readonly StageCategory[];
   characters: Characters;
   /** Сцена на экране и вкладка видна; иначе кадры не рисуются. */
   active: boolean;
@@ -135,13 +137,16 @@ function A11y({ label }: { label: string }) {
   return null;
 }
 
-export default function StageScene({ category, characters, active, retryToken, label, apiRef, bubbleRef, onPhase }: SceneProps) {
+export default function StageScene({ category, categories, characters, active, retryToken, label, apiRef, bubbleRef, onPhase }: SceneProps) {
   const colors = useStageColors();
   const reduced = useReducedMotion();
   const [dpr, setDpr] = useState<number | [number, number]>([1, 1.75]);
   const activity = useRef<Activity>(createActivity());
   const anchors = useRef<Anchors>({ head: new THREE.Vector3(0, 1.6, 0), eye: new THREE.Vector3(0, 1.2, 0), valid: false });
   const rigGroup = useRef<THREE.Group>(null);
+  // по одной модели на персонажа, в порядке категорий; запись только при смене набора
+  const preloadKey = [...new Set(categories.map((c) => c.character))].join(",");
+  const preload = useMemo(() => preloadKey.split(",") as StageCategory["character"][], [preloadKey]);
 
   return (
     <Canvas
@@ -159,10 +164,18 @@ export default function StageScene({ category, characters, active, retryToken, l
     >
       <A11y label={label} />
       <Lights dark={colors.dark} />
-      <Rig category={category} apiRef={apiRef} activity={activity} reduced={reduced} groupRef={rigGroup}>
-        <Podium category={category} colors={colors} reduced={reduced} activity={activity} />
+      <Rig viewKey={category.id} homeYaw={DEFAULT_YAW[category.character]} apiRef={apiRef} activity={activity} reduced={reduced} groupRef={rigGroup}>
+        <Podium
+          index={Math.max(0, categories.findIndex((c) => c.id === category.id))}
+          count={categories.length}
+          color={category.color}
+          colors={colors}
+          reduced={reduced}
+          activity={activity}
+        />
         <Showcase
-          category={category}
+          character={category.character}
+          preload={preload}
           facesEnabled={characters.facesEnabled}
           reduced={reduced}
           retryToken={retryToken}

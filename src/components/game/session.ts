@@ -24,6 +24,7 @@ const rand = (a: number, b: number) => a + Math.random() * (b - a);
 const _ndc = new THREE.Vector2();
 
 export type SessionOptions = {
+  /** Ключ персонажа (CharacterKey): от него зависят виды пятен и ракурс первых пятен. */
   category: string;
   asset: CharacterAsset;
   faces: boolean;

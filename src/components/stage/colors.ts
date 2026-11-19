@@ -1,7 +1,6 @@
 "use client";
 /** Цвета сцены читаются из CSS-переменных и обновляются при смене темы (data-theme и prefers-color-scheme). */
 import { useSyncExternalStore } from "react";
-import { CATEGORIES, type CategoryId } from "@/lib/catalog";
 
 export type StageColors = {
   dark: boolean;
@@ -9,7 +8,6 @@ export type StageColors = {
   ink: string;
   surface: string;
   accent: string;
-  cats: Record<CategoryId, string>;
 };
 
 const FALLBACK: StageColors = {
@@ -18,7 +16,6 @@ const FALLBACK: StageColors = {
   ink: "#1c231f",
   surface: "#fafbf8",
   accent: "#2e57d1",
-  cats: Object.fromEntries(CATEGORIES.map((c) => [c.id, c.color])) as Record<CategoryId, string>,
 };
 
 function read(): StageColors {
@@ -30,7 +27,6 @@ function read(): StageColors {
     ink: v("--ink", FALLBACK.ink),
     surface: v("--surface", FALLBACK.surface),
     accent: v("--accent", FALLBACK.accent),
-    cats: Object.fromEntries(CATEGORIES.map((c) => [c.id, v(`--cat-${c.id}`, c.color)])) as Record<CategoryId, string>,
   };
 }
 

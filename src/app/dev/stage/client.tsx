@@ -1,13 +1,17 @@
 "use client";
 import { useState } from "react";
-import { CATEGORIES, type CategoryId } from "@/lib/catalog";
+import { CHARACTER_KEYS, LEGACY_CATEGORY } from "@/lib/catalog";
 import type { Settings } from "@/lib/settings";
 import { Stage } from "@/components/stage";
 
 type Personality = Settings["characters"]["personality"];
 
+/** Стенд не читает БД: по одной категории на каждого из шести персонажей (id категории = ключ персонажа). */
+const DEV_CATEGORIES = CHARACTER_KEYS.map((key) => ({ id: key, character: key, title: LEGACY_CATEGORY[key].title, color: LEGACY_CATEGORY[key].color }));
+
 export function StageDev() {
-  const [category, setCategory] = useState<CategoryId>("furniture");
+  const [categoryId, setCategoryId] = useState<string>("furniture");
+  const category = DEV_CATEGORIES.find((c) => c.id === categoryId) ?? DEV_CATEGORIES[0];
   const [personality, setPersonality] = useState<Personality>("calm");
   const [facesEnabled, setFaces] = useState(true);
   const [phrasesEnabled, setPhrases] = useState(true);
@@ -15,15 +19,15 @@ export function StageDev() {
   return (
     <main className="mx-auto max-w-xl p-4">
       <h1 className="mb-3 text-xl font-semibold">Стенд сцены (dev)</h1>
-      <Stage category={category} characters={{ personality, facesEnabled, phrasesEnabled }} className="h-[44vh] min-h-[320px]" />
+      <Stage category={category} categories={DEV_CATEGORIES} characters={{ personality, facesEnabled, phrasesEnabled }} className="h-[44vh] min-h-[320px]" />
       <div className="mt-3 flex flex-wrap gap-2">
-        {CATEGORIES.map((c) => (
+        {DEV_CATEGORIES.map((c) => (
           <button
             key={c.id}
             type="button"
             data-testid={`cat-${c.id}`}
-            aria-pressed={c.id === category}
-            onClick={() => setCategory(c.id)}
+            aria-pressed={c.id === categoryId}
+            onClick={() => setCategoryId(c.id)}
             className="h-12 rounded-full border border-line px-4 aria-pressed:border-accent aria-pressed:bg-accent aria-pressed:text-accent-ink"
           >
             {c.title}
