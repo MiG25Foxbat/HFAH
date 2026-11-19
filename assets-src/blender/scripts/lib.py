@@ -334,7 +334,7 @@ def face_mats():
         mouth=mat("Mouth", "#2B1E1B", rough=0.45),
         cheek=mat("Cheek", "#F08F8A", rough=0.85),
         glove=mat("Glove", "#F6F2EA", rough=0.75),
-        palm=mat("GlovePalm", "#E4D8C6", rough=0.95),
+        palm=mat("GlovePalm", "#E8DDCC", rough=0.95),
     )
 
 
@@ -412,12 +412,14 @@ def _squircle(nx, nz, k=0.55):
     return 1 + k * (q - 1)
 
 
-def hand_bm(s):
-    """Flat mitten: hangs along -Z from the wrist, back of the hand +Y (convex), palm -Y (shallow dish).
-    Returns (mitten bmesh, palm-pad bmesh). The pad is a thin disc that follows the dish (separate material)."""
+def hand_bm(s, out=-1):
+    """Flat mitten: hangs along -Z from the wrist, back of the hand +Y (convex), palm -Y (shallow dish over the whole palm).
+    Returns (mitten bmesh, palm bmesh). The palm is a thin skin (material GlovePalm) laid on the dish: it follows the
+    mitten outline, inset ~5 % from the rim with a tapered edge (the last rings dip under the surface).
+    `out` = x direction of the outer (thumb) side (unused for the palm, kept for the signature)."""
     from mathutils.bvhtree import BVHTree
     hx, hz, zc = 0.056 * s, 0.058 * s, -0.066 * s
-    hyb, hyp, dish = 0.034 * s, 0.025 * s, 0.013 * s
+    hyb, hyp, dish = 0.034 * s, 0.025 * s, 0.014 * s
     bm = sphere_bm(1, 1, 1, 32, 20)
     for v in bm.verts:
         nx, ny, nz = v.co
@@ -427,23 +429,25 @@ def hand_bm(s):
         y = ny * (hyb if ny > 0 else hyp)
         if ny < 0:
             e = (x / hx) ** 2 + ((z - zc) / hz) ** 2
-            y += dish * max(0.0, 1 - e / 0.6) ** 2 * (-ny)
+            y += dish * max(0.0, 1 - e / 1.15) ** 1.6 * (-ny)
         v.co = Vector((x, y, z))
-    # palm pad: polar grid raycast onto the dish
+    # palm skin: polar grid scaled to the mitten outline, rays onto the dish
     bvh = BVHTree.FromBMesh(bm)
     pad = bmesh.new()
-    rings = [(0.0, 0.0030), (0.33, 0.0030), (0.62, 0.0026), (0.85, 0.0012), (1.0, -0.0025)]
-    rx, rz, segs = 0.56 * hx, 0.60 * hz, 28
+    #        (fraction of the outline, offset above the surface in units of s)  last rings dip under the surface = soft edge
+    rings = [(0.0, 0.0026), (0.12, 0.0026), (0.25, 0.0026), (0.38, 0.0026), (0.5, 0.0026), (0.62, 0.0025), (0.73, 0.0024),
+             (0.83, 0.0022), (0.90, 0.0016), (0.945, 0.0004), (0.97, -0.0025)]
+    segs = 36
     R = []
     for a, off in rings:
-        if a == 0.0:
-            n = 1
-        else:
-            n = segs
         ring = []
-        for j in range(n):
+        for j in range(1 if a == 0.0 else segs):
             t = 2 * pi * j / segs
-            x, z = a * rx * cos(t), zc + a * rz * sin(t)
+            nx, nz = cos(t), sin(t)
+            q = _squircle(nx, nz)
+            ox = nx * q * hx * (1 - 0.10 * nz)
+            oz = nz * q * hz
+            x, z = a * ox, zc + a * oz
             loc, nrm, _, _ = bvh.ray_cast(Vector((x, -1.0, z)), Vector((0, 1, 0)))
             assert loc is not None
             ring.append(pad.verts.new(loc + Vector((0, -off * s, 0))))
@@ -457,9 +461,8 @@ def hand_bm(s):
                 pad.faces.new(tri)
             except ValueError:
                 pass
-    # make pad normals point to -Y (outwards on the palm side)
     pad.normal_update()
-    if sum(f.normal.y for f in pad.faces) > 0:
+    if sum(f.normal.y for f in pad.faces) > 0:                            # normals point to -Y (palm side)
         bmesh.ops.reverse_faces(pad, faces=list(pad.faces))
     return bm, pad
 
@@ -496,9 +499,9 @@ def build_arm(side, rig, pivot, glove, tube_mat, L=0.32, r=0.03, rest_deg=20, ha
     hd = empty(f"Hand_{side}", arm, (0, 0, -L), display="SPHERE", size=0.04)
     hd.rotation_mode = "XYZ"
     s = hand * HAND_SCALE
-    mit, pad = hand_bm(s)
+    mit, pad = hand_bm(s, out)
     finish(mit, f"Hand_{side}_Mitten", glove, hd, normals="area")
-    finish(pad, f"Hand_{side}_Palm", fm["palm"], hd, normals=None)
+    finish(pad, f"Hand_{side}_Palm", fm["palm"], hd, normals="area")
     # thumb: capsule on the outer edge, shifted to the palm side (-Y), pointing down/outwards
     path = [Vector((out * 0.038 * s, -0.012 * s, -0.034 * s)), Vector((out * 0.056 * s, -0.019 * s, -0.052 * s)),
             Vector((out * 0.066 * s, -0.023 * s, -0.074 * s))]

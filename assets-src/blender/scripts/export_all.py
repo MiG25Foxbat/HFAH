@@ -10,7 +10,7 @@ from mathutils.bvhtree import BVHTree
 import lib, studio
 
 BASE = lib.BASE
-CATS = ["furniture", "plumbing", "electric", "repair", "other", "appliances"]
+CATS = os.environ.get("CATS", "furniture,plumbing,electric,repair,other,appliances").split(",")
 STAGE = Vector((0, 12, 0))
 STEPS = os.environ.get("STEPS", "qa,glb,posters").split(",")
 sc = bpy.context.scene

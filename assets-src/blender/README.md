@@ -17,14 +17,14 @@ The app loads `/models/${id}.glb` and `/posters/${id}.webp` with its own categor
 
 | File id | Character | Body colour | Extra parts (separate meshes) | Optimised GLB | Tris |
 |---|---|---|---|---|---|
-| `furniture` | двухдверный шкаф (cornice, 2 doors with 12 mm gap, 4 legs) | oak `#C08A55` | `Legs`, `Handle_L/R` (cream) | 80 KB | 10.7k |
-| `plumbing` | однорычажный смеситель: round base, pillar body, **long chunky spout with a visible aerator mouth**, cylindrical cartridge and a **flat blue paddle lever** | chrome (metal 0.7, rough 0.2) | `Lever` (cartridge + pivot cap, chrome), `LeverTip` (paddle, blue `#4E8FCB`), `Aerator` (dark mouth disc) | 160 KB | 25.3k |
-| `electric` | настольная лампа (base, ball-jointed stem, ribbed socket, glowing bulb, cone shade, face on shade; **arms start at the top of the stem under the bulb**) | shade `#E3B23C` | `Base`, `Stem`, `Socket`, `Bulb` (emissive) | 136 KB | 21.1k |
-| `repair` | малярный валик (fur sleeve, S-frame, grip, stands upright, face on roller, arms from the roller ends) | mint `#6CC3A0` | `Hubs`, `Frame`, `Grip` (orange handle) | 150 KB | 27.9k |
-| `other` | ящик с инструментами (hollow box, lid ajar, carry handle, latches) **full of tools: cordless drill, screwdriver, pliers, adjustable wrench, claw hammer** | blue `#2E57D1` | `Hinge`, `Latch_L/R`, `CarryHandle`, `Hammer_Handle/Head/Face`, `Screwdriver_Handle/Shaft`, `Pliers_Head/Rivet/Grip`, `Wrench`, `Drill_Body/Chuck/Grip` | 164 KB | 25.9k |
-| `appliances` | **стиральная машина с фронтальной загрузкой** (cube body with soft bevels, raised control panel with face, program knob and display, porthole door with chrome ring / gasket / glass / laundry / water / bubbles, 4 feet) | lavender `#8E7CE0` | `Feet`, `Knob`, `KnobMark`, `Display`, `Display_Glow`, `Door_Ring/Gasket/Drum/Water/Laundry/Bubbles/Glass/Shine` | 126 KB | 18.1k |
+| `furniture` | двухдверный шкаф (cornice, 2 doors with 12 mm gap, 4 legs) | oak `#C08A55` | `Legs`, `Handle_L/R` (cream) | 83 KB | 11.3k |
+| `plumbing` | однорычажный смеситель: round base, pillar body, **long chunky spout with a visible aerator mouth**, cylindrical cartridge and a **flat blue paddle lever** | chrome (metal 0.7, rough 0.2) | `Lever` (cartridge + pivot cap, chrome), `LeverTip` (paddle, blue `#4E8FCB`), `Aerator` (dark mouth disc) | 161 KB | 25.8k |
+| `electric` | настольная лампа (base, ball-jointed stem, ribbed socket, glowing bulb, cone shade, face on shade; **arms start at the top of the stem under the bulb**) | shade `#E3B23C` | `Base`, `Stem`, `Socket`, `Bulb` (emissive) | 126 KB | 20.1k |
+| `repair` | малярный валик (fur sleeve, S-frame, grip, stands upright, face on roller, arms from the roller ends) | mint `#6CC3A0` | `Hubs`, `Frame`, `Grip` (orange handle) | 158 KB | 28.4k |
+| `other` | ящик с инструментами (hollow box, lid ajar, carry handle, latches) **full of tools: cordless drill, screwdriver, pliers, adjustable wrench, claw hammer** | blue `#2E57D1` | `Hinge`, `Latch_L/R`, `CarryHandle`, `Hammer_Handle/Head/Face`, `Screwdriver_Handle/Shaft`, `Pliers_Head/Rivet/Grip`, `Wrench`, `Drill_Body/Chuck/Grip` | 165 KB | 26.4k |
+| `appliances` | **стиральная машина с фронтальной загрузкой** (cube body with soft bevels, raised control panel with face, program knob and display, porthole door with chrome ring / gasket / glass / laundry / water / bubbles, 4 feet) | lavender `#8E7CE0` | `Feet`, `Knob`, `KnobMark`, `Display`, `Display_Glow`, `Door_Ring/Gasket/Drum/Water/Laundry/Bubbles/Glass/Shine` | 129 KB | 18.6k |
 
-Raw GLBs (`export/`) are 250–600 KB; optimised ones (`optimized/`) 80–164 KB (≤ 400 KB target met, ≈ 3–4× smaller). No textures exist at all (flat PBR colours), so there is nothing to compress with WebP or to cap at 1024 px.
+Raw GLBs (`export/`) are 250–600 KB; optimised ones (`optimized/`) 83–165 KB (≤ 400 KB target met, ≈ 3–4× smaller). No textures exist at all (flat PBR colours), so there is nothing to compress with WebP or to cap at 1024 px.
 
 ## Files
 
@@ -63,7 +63,7 @@ Root                      static; put app transforms (drag rotation, scale, plac
    │  ├─ Arm_R_Tube
    │  └─ Hand_R           wrist pivot, animated by Wave (rotation); children (all meshes):
    │       Hand_R_Mitten  flat mitten, convex back (+Y), shallow concave palm (−Y)
-   │       Hand_R_Palm    thin palm pad lying in the dish (material GlovePalm: warmer, rougher)
+   │       Hand_R_Palm    palm skin over the whole palm side, inset ~5 % from the rim, soft tapered edge (material GlovePalm: warmer, rougher)
    │       Hand_R_Thumb   on the outer edge, shifted to the palm side
    │       Hand_R_Cuff    short wrist cuff, open top (the arm tube passes through)
    └─ Arm_L … Hand_L      same, mirrored, never animated (rest pose only)
@@ -100,7 +100,7 @@ After optimisation geometry is quantised, so mesh nodes (e.g. `Body`) carry a tr
 
 ## Art-direction pass 2 (2026-11-20, owner review)
 
-* **Hands, all six.** Flat mitten (`hand_bm` in `scripts/lib.py`): squircle outline, convex back, shallow dish on the palm side with a separate palm pad (`GlovePalm` `#E4D8C6`, roughness 0.95 vs `Glove` `#F6F2EA` 0.75), thumb on the outer edge shifted to the palm side, short open-top cuff (`cuff_bm`) at the wrist. Same overall size as before (mitten slightly wider and clearly thinner; the thumb adds ~0.1 on the outer side).
+* **Hands, all six.** Flat mitten (`hand_bm` in `scripts/lib.py`): squircle outline, convex back, shallow dish over the whole palm side with a separate palm skin that follows the mitten outline (`Hand_*_Palm`, inset ~5 % from the rim, edge tapering under the surface; `GlovePalm` `#E8DDCC`, roughness 0.95 vs `Glove` `#F6F2EA` 0.75), so the inside of the glove reads as one lighter surface instead of a spot (a first version with a round pad in the middle read as an animal paw pad and was replaced), thumb on the outer edge shifted to the palm side, short open-top cuff (`cuff_bm`) at the wrist. Same overall size as before (mitten slightly wider and clearly thinner; the thumb adds ~0.1 on the outer side).
 * **Toolbox.** Still the same box, lid angle and face. Tools (`scripts/toolbox_tools.py`, placed by `TOOL_PLACE` in `chars.py`, fanned left to right): cordless drill (green/graphite, chuck + bit), screwdriver, combination pliers (orange grips), adjustable wrench, **claw hammer** — big head with a round polished striking face on one side and a split curved claw on the other, steel shaft, yellow grip with flared butt; no brand text. Every tool leans forward through the lid gap and is checked against box, lid, latches and each other (0 overlapping triangles).
 * **Lamp.** Shoulder pivots moved from the shade rim to the top of the stem: `(±0.052, −0.02, 0.91)` on the metal socket just under the bulb (red lines in `sources/refs-2026-11-20/lamp-arms-from-stem-top-redline.png`; the old pivots were at z ≈ 1.15 under the shade rim, the new ones are where the red lines start, 0.24 lower), arm length 0.44 (was 0.26), rest angle 26°. Wave raises the arm to 102° with a wrist bend; the hand stays clear of the shade rim (min clearance 2 cm).
 * **Faucet.** Spout is now 1.0 long (was 0.8), radius 0.098 (was 0.074), straight forward then bending ~31° down into an aerator ring with a dark mouth disc, with a collar at the body. The pillar's top is a sloping shoulder carrying a **cylindrical cartridge** (`Lever`) and a **flat paddle lever** (`LeverTip`, blue, rising 15°, pointing back-right so it reads side-on at the app's default yaw of −0.7 rad). The spout stays above the face (eyes top at 0.76, spout bottom at ≈ 0.82) and leaves to the viewer's left at yaw −0.7 (`previews/threejs_plumbing_yaw-0.7.png`).
@@ -129,9 +129,9 @@ Requirements: Blender 5.3 (path in `scripts/build.sh`, override with `BLENDER=`)
 
 ```bash
 bash scripts/build.sh          # assemble .blend → QA + export GLB + posters/previews → posters to WebP + sheets → optimise GLBs
-# or step by step:
+# or step by step (export_all.py runs best one STEP per Blender process, as build.sh does: posters rendered after the QA sweeps + GLB export in the same process showed small cuff artefacts):
 blender -b --python scripts/assemble.py                                  # builds the 6 characters, UVs, NLA clips, saves zaprosto-characters.blend
-blender -b zaprosto-characters.blend --python scripts/export_all.py      # STEPS=qa,glb,posters (env var) to run a subset
+STEPS=qa blender -b zaprosto-characters.blend --python scripts/export_all.py   # then STEPS=glb, then STEPS=posters (CATS=appliances limits the characters)
 node scripts/posters_post.mjs                                            # PNG → WebP + contact sheets + flat posters + blink/hand sheets
 node scripts/optimize.mjs                                                # export/ → optimized/ (+ gltf validator)
 node scripts/glb_stats.mjs optimized ; node scripts/glb_nodes.mjs optimized/appliances.glb   # verify sizes, node names, clips
@@ -152,5 +152,5 @@ Dev tools: `scripts/dev.py` (quick preview renders and QA of one character, e.g.
 * The washing machine's glass is alpha-blended; with a non-blending renderer hide `Door_Glass`. The tools in the toolbox are toy-scale and stylised (the claw is two round-section prongs, the wrench head is three boxes), no brand marks.
 * Blink: closed lids are body-coloured domes (look like a smooth eyelid bump); at very oblique angles a hairline of the eye may show for a few frames.
 * Quantisation precision: positions 14 bit per mesh, normals 10 bit, UV 12 bit (grime mask sampling error < 1/4096 of UV space).
-* Fur on the roller is geometric noise (damped around the face), 28k triangles for that character; the others are 10–26k.
+* Fur on the roller is geometric noise (damped around the face), 28k triangles for that character; the others are 11–26k.
 * Checked in a real browser (three.js r180, MeshoptDecoder, Wave frozen at 0.7 s and clip sampling at 0 / 0.5 / 1 / 1.59 s, with an environment) but not on a physical phone.
