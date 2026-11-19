@@ -17,6 +17,7 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["tests/**/*.test.ts"],
+    globalSetup: ["tests/global-setup.ts"],
     // интеграционные тесты делят одну тестовую базу
     fileParallelism: false,
     env: {

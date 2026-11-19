@@ -1,26 +1,127 @@
 @import "tailwindcss";
 
+/*
+ * Токены «Ладно» (docs/DESIGN.md). Светлая тема — по умолчанию.
+ * Тёмная включается явным выбором (html[data-theme="dark"]) или системной (prefers-color-scheme),
+ * если явно не выбрана светлая. Класс Tailwind → токен: bg-bg, bg-surface, bg-surface-2, text-ink, text-muted,
+ * border-line, bg-accent + text-accent-ink, text-ply, text-danger, text-ok, bg-cat-furniture и т. д.
+ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+  color-scheme: light;
+  --bg: #eef0eb;
+  --surface: #fafbf8;
+  --surface-2: #e3e6df;
+  --ink: #1c231f;
+  --muted: #5b655e;
+  --line: #cdd3ca;
+  --accent: #2e57d1;
+  --accent-ink: #ffffff;
+  --ply: #d4b07c;
+  --danger: #b3261e;
+  --ok: #2e7d4f;
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  /* цвета категорий (точка в чипе, тон персонажа) */
+  --cat-furniture: #c08a55;
+  --cat-plumbing: #4e8fcb;
+  --cat-electrics: #e3b23c;
+  --cat-repair: #6cc3a0;
+  --cat-other: #2e57d1;
+
+  --radius-field: 14px;
+  --radius-panel: 22px;
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #131714;
+    --surface: #1b201c;
+    --surface-2: #232924;
+    --ink: #e6eae4;
+    --muted: #9aa59d;
+    --line: #323a34;
+    --accent: #86a2ff;
+    --accent-ink: #0e1430;
+    --ply: #b8935e;
+    --danger: #ff8a80;
+    --ok: #7fd3a0;
   }
 }
 
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #131714;
+  --surface: #1b201c;
+  --surface-2: #232924;
+  --ink: #e6eae4;
+  --muted: #9aa59d;
+  --line: #323a34;
+  --accent: #86a2ff;
+  --accent-ink: #0e1430;
+  --ply: #b8935e;
+  --danger: #ff8a80;
+  --ok: #7fd3a0;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-ply: var(--ply);
+  --color-danger: var(--danger);
+  --color-ok: var(--ok);
+
+  --color-cat-furniture: var(--cat-furniture);
+  --color-cat-plumbing: var(--cat-plumbing);
+  --color-cat-electrics: var(--cat-electrics);
+  --color-cat-repair: var(--cat-repair);
+  --color-cat-other: var(--cat-other);
+
+  --font-sans: var(--font-golos), system-ui, sans-serif;
+  --font-display: var(--font-unbounded), var(--font-golos), system-ui, sans-serif;
+
+  --radius-field: 14px;
+  --radius-panel: 22px;
+}
+
+html {
+  background: var(--bg);
+  color: var(--ink);
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-golos), system-ui, sans-serif;
+  font-size: 1rem;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3 {
+  line-height: 1.15;
+}
+
+:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
 }
