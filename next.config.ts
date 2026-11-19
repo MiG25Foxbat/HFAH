@@ -9,6 +9,8 @@ const noStore = [
 const noReferrer = { key: "Referrer-Policy", value: "no-referrer" };
 
 const nextConfig: NextConfig = {
+  // Параллельные dev-серверы в одной папке: NEXT_DIST_DIR=.next-a npx next dev -p 3001
+  distDir: process.env.NEXT_DIST_DIR || ".next",
   cacheComponents: true,
   partialPrefetching: true,
   allowedDevOrigins: ["127.0.0.1"],
