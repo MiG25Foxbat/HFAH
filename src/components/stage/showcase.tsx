@@ -116,6 +116,7 @@ function instantiate(category: CategoryId, asset: CharacterAsset): Inst {
   const lids = ["Lid_L", "Lid_R"].map((n) => root.getObjectByName(n)).filter((o): o is THREE.Object3D => !!o);
 
   const pivot = new THREE.Group();
+  pivot.name = `character-${category}`;
   pivot.add(fit);
 
   const mixer = new THREE.AnimationMixer(root);

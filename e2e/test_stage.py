@@ -104,9 +104,15 @@ def run():
         for c in order:
             click_cat(page, c)
             page.wait_for_timeout(90)
-        page.wait_for_timeout(1500)
-        check("rapid switch: ends on the last category", page.locator("[data-stage]").get_attribute("data-stage") == "other")
-        check("rapid switch: exactly one character", showcase_count(page) == 1, f"children={showcase_count(page)}")
+        # Последний выбор может ещё догружаться: ждём, пока останется ровно один персонаж.
+        try:
+            page.wait_for_function("window.__stage.scene.getObjectByName('showcase').children.length === 1", timeout=6000)
+        except Exception:
+            pass
+        page.wait_for_timeout(500)
+        names = page.evaluate("window.__stage.scene.getObjectByName('showcase').children.map(c => c.name)")
+        check("rapid switch: ends on the last category", page.locator("[data-stage]").get_attribute("data-stage") == "other" and names == ["character-other"], str(names))
+        check("rapid switch: exactly one character", len(names) == 1, f"children={names}")
         mx = page.evaluate("window.__maxChildren")
         check("rapid switch: never more than 2 characters", mx <= 2, f"max={mx}")
         page.screenshot(path=os.path.join(SHOTS, "stage-desktop-rapid-final.png"))
