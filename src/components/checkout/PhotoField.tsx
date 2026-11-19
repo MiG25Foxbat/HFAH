@@ -64,11 +64,12 @@ export function PhotoField({ photos, required, error, onChanged }: { photos: Pho
   };
 
   return (
-    <div className="grid gap-3">
+    // min-w-0 по всей цепочке: иначе длинное имя файла или кнопка «Повторить» растягивают дорожку сетки формы шире экрана (390 px → 426 px)
+    <div className="grid min-w-0 gap-3">
       {photos.length > 0 && (
-        <ul className="grid gap-2">
+        <ul className="grid min-w-0 gap-2">
           {photos.map((p, i) => (
-            <li key={p.lid} className="flex items-center gap-3 rounded-field border border-line bg-surface p-2" data-photo-status={p.status}>
+            <li key={p.lid} className="flex min-w-0 items-center gap-3 rounded-field border border-line bg-surface p-2" data-photo-status={p.status}>
               <div className="size-16 shrink-0 overflow-hidden rounded-[10px] bg-surface-2">
                 {p.thumb && (
                   // dataURL-превью из черновика: next/image здесь не нужен
@@ -76,31 +77,34 @@ export function PhotoField({ photos, required, error, onChanged }: { photos: Pho
                   <img src={p.thumb} alt={`Фото ${i + 1}`} width={64} height={64} className="size-full object-cover" />
                 )}
               </div>
-              <div className="min-w-0 flex-1" aria-live="polite">
-                <p className="truncate text-[0.9375rem] font-medium">{p.name || `Фото ${i + 1}`}</p>
-                {p.status === "uploading" && (
-                  <>
-                    <div role="progressbar" aria-label={`Загрузка фото ${i + 1}`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={p.progress} className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-surface-2">
-                      <div className="h-full rounded-full bg-accent transition-[width] duration-200" style={{ width: `${Math.max(4, p.progress)}%` }} />
-                    </div>
-                    <p className="mt-1 text-[0.8125rem] text-muted tabular-nums">{p.thumb ? `Загружаем: ${p.progress}%` : "Готовим фото…"}</p>
-                  </>
+              <div className="min-w-0 flex-1">
+                <div aria-live="polite">
+                  <p className="truncate text-[0.9375rem] font-medium">{p.name || `Фото ${i + 1}`}</p>
+                  {p.status === "uploading" && (
+                    <>
+                      <div role="progressbar" aria-label={`Загрузка фото ${i + 1}`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={p.progress} className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-surface-2">
+                        <div className="h-full rounded-full bg-accent transition-[width] duration-200" style={{ width: `${Math.max(4, p.progress)}%` }} />
+                      </div>
+                      <p className="mt-1 text-[0.8125rem] text-muted tabular-nums">{p.thumb ? `Загружаем: ${p.progress}%` : "Готовим фото…"}</p>
+                    </>
+                  )}
+                  {p.status === "done" && <p className="text-[0.8125rem] text-ok">Загружено</p>}
+                  {p.status === "error" && <p className="break-words text-[0.8125rem] leading-snug text-danger">{p.error}</p>}
+                </div>
+                {/* «Повторить» под текстом ошибки, а не в строке: в строке на 390 px от текста оставалось ~45 px */}
+                {p.status === "error" && blobs.has(p.lid) && (
+                  <Button
+                    variant="secondary"
+                    onClick={() => {
+                      onChanged();
+                      void upload(p.lid);
+                    }}
+                    className="mt-2 min-h-11 px-3 text-[0.9375rem]"
+                  >
+                    Повторить
+                  </Button>
                 )}
-                {p.status === "done" && <p className="text-[0.8125rem] text-ok">Загружено</p>}
-                {p.status === "error" && <p className="text-[0.8125rem] leading-snug text-danger">{p.error}</p>}
               </div>
-              {p.status === "error" && blobs.has(p.lid) && (
-                <Button
-                  variant="secondary"
-                  onClick={() => {
-                    onChanged();
-                    void upload(p.lid);
-                  }}
-                  className="min-h-11 px-3 text-[0.9375rem]"
-                >
-                  Повторить
-                </Button>
-              )}
               <IconButton
                 label={`Удалить фото ${i + 1}`}
                 onClick={() => {
