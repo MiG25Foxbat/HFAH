@@ -96,8 +96,10 @@ def new_page(browser, w=390, h=844, scheme="light"):
     ctx = browser.new_context(viewport={"width": w, "height": h}, color_scheme=scheme, locale="ru-RU", timezone_id="Europe/Moscow", permissions=["clipboard-read", "clipboard-write"])
     page = ctx.new_page()
     page.errors = []
+    page.not_found = []
     page.on("pageerror", lambda e: page.errors.append(f"pageerror: {e}"))
-    page.on("console", lambda m: page.errors.append(f"console.error: {m.text}") if m.type == "error" and "favicon" not in m.text else None)
+    page.on("console", lambda m: page.errors.append(f"console.error: {m.text}") if m.type == "error" and "Failed to load resource" not in m.text else None)
+    page.on("response", lambda r: page.not_found.append((r.status, r.url)) if r.status >= 400 and "favicon" not in r.url else None)
     return page
 
 
@@ -169,9 +171,15 @@ def no_hscroll(page, label):
     assert w[0] <= w[1], f"{label}: горизонтальная прокрутка {w}"
 
 
+# страницы, которые делает другой инженер: ссылки на них в шапке и подвале префетчатся в production и дают 404 до их появления
+PENDING_PAGES = ("/uslugi", "/contacts", "/privacy", "/credits")
+
+
 def no_errors(page, label):
     errs = [e for e in page.errors if "Download the React DevTools" not in e]
     assert not errs, f"{label}: ошибки в консоли: {errs[:3]}"
+    bad = [(c, u) for c, u in page.not_found if not (c == 404 and any(u.split("?")[0].endswith(x) for x in PENDING_PAGES))]
+    assert not bad, f"{label}: неудачные запросы: {bad[:3]}"
 
 
 def submit_and_wait(page, timeout=30000):
@@ -310,6 +318,8 @@ def e_f_checkout_draft_photo_submit(browser):
     page.wait_for_url("**/checkout")
     name = f"Тест Клиент {RUN}"
     page.get_by_role("heading", name="Оформление заявки").wait_for()
+    page.get_by_label("Имя", exact=True).wait_for()
+    page.wait_for_timeout(300)  # сразу после перехода (первые ~100 мс) ввод ещё может не дойти до формы: человеку это недоступно
     fill_checkout(page, name)
     page.get_by_label("Желаемая дата").fill(WISH_DATE)
     page.get_by_text("12:00–15:00", exact=True).click()  # радио скрыто визуально (sr-only), нажимается подпись
@@ -348,7 +358,7 @@ def e_f_checkout_draft_photo_submit(browser):
     page.on("request", lambda r: posted.append(r.url) if r.method == "POST" and r.url.endswith("/api/orders") else None)
     page.get_by_role("button", name="Отправить заявку").click()
     expect(page.locator("#f-consent-err")).to_contain_text("согласие")
-    assert page.evaluate("() => document.activeElement && document.activeElement.id") == "f-consent"
+    expect(page.locator("#f-consent")).to_be_focused()
     assert not posted
 
     page.locator("#f-consent").check()
@@ -508,7 +518,7 @@ def h_other_requires_photo_and_manual_never_free(browser):
     page.on("request", lambda r: posted.append(1) if r.method == "POST" and r.url.endswith("/api/orders") else None)
     page.get_by_role("button", name="Отправить заявку").click()
     expect(page.locator("#photos-err")).to_contain_text("приложите хотя бы одно фото")
-    assert page.evaluate("() => document.activeElement && document.activeElement.dataset.field") == "photos"
+    expect(page.locator("[data-field=photos]")).to_be_focused()
     assert not posted and orders_named(name) == 0
     shot(page, "checkout-photo-required-390-light", full=True)
 

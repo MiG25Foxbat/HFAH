@@ -32,6 +32,16 @@ const ACCESS_LABELS: Record<AccessField, { label: string; placeholder: string }>
   parking: { label: "Парковка", placeholder: "во дворе, платная, шлагбаум" },
 };
 
+/** Фокус на первое поле с ошибкой. Если ошибка в свёрнутом блоке «Этаж и доступ», блок сначала раскрывается (нужен кадр на отрисовку). */
+function focusErrors(keys: string[], openAccess: () => void) {
+  if (keys.some((k) => k.startsWith("access."))) {
+    openAccess();
+    requestAnimationFrame(() => focusFirst(keys));
+  } else {
+    focusFirst(keys);
+  }
+}
+
 function focusFirst(keys: string[]) {
   const rank = (k: string) => (k.startsWith("lines.") ? -1 : ORDER.indexOf(groupOf(k)) === -1 ? 99 : ORDER.indexOf(groupOf(k)));
   for (const k of [...keys].sort((a, b) => rank(a) - rank(b))) {
@@ -138,8 +148,7 @@ export function Checkout({ services, pricing, excluded }: { services: Service[];
       return;
     }
     if (keys.length) {
-      if (keys.some((k) => k.startsWith("access."))) setAccessOpen(true);
-      requestAnimationFrame(() => focusFirst(keys));
+      focusErrors(keys, () => setAccessOpen(true));
       return;
     }
 
@@ -185,8 +194,8 @@ export function Checkout({ services, pricing, excluded }: { services: Service[];
       }
       if (data?.fields) {
         setServerErrors(data.fields);
-        if (Object.keys(data.fields).some((k) => k.startsWith("access."))) setAccessOpen(true);
-        requestAnimationFrame(() => focusFirst(Object.keys(data.fields!)));
+        // сообщения у полей появятся после отрисовки: фокус переносим на следующем кадре
+        requestAnimationFrame(() => focusErrors(Object.keys(data.fields!), () => setAccessOpen(true)));
       }
       setFormError(
         res.status === 429
