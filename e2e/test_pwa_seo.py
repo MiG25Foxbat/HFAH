@@ -8,6 +8,7 @@ EXPECT_ORIGIN — APP_ORIGIN, с которым собран сервер (по 
 Сценарий «с контактами» временно пишет вымышленные контакты в settings и возвращает пустые.
 """
 
+import html as htmlmod
 import json
 import os
 import re
@@ -159,11 +160,13 @@ def a_server_rendered_content(browser):
 
     offices = html("/dlya-ofisov")
     assert len(re.findall(r"<h1[ >]", offices)) == 1 and "Для офисов" in offices and '<main id="main"' in offices, "h1 /dlya-ofisov"
-    office_works = db("select title, price, unit, pricing from services s join categories c on c.id = s.category where s.active and c.active and s.office")
+    office_works = db("select s.title, s.price, s.unit, s.pricing from services s join categories c on c.id = s.category where s.active and c.active and s.office")
     assert office_works and all(w["title"] in offices for w in office_works), "офисные работы не пришли в HTML"
     assert all(f"{rub(w['price'])} за {units[w['unit']]}" in offices for w in office_works if w["pricing"] == "fixed"), "цены офисных работ"
     assert "Как мы работаем с организациями" in offices and settings["company"]["orgNote"] in offices, "условия владельца для организаций"
-    assert db("select title from services s join categories c on c.id = s.category where s.active and c.active and not s.office limit 1")[0]["title"] not in offices
+    # в разметке строк (h3) ровно офисные работы; в потоке данных страницы лежит весь прайс для корзины, поэтому ищем не по всему HTML
+    shown = sorted(htmlmod.unescape(t) for t in re.findall(r"<h3[^>]*>([^<]*)</h3>", offices))
+    assert shown == sorted(w["title"] for w in office_works), (len(shown), len(office_works))
     privacy = html("/privacy")
     assert "Политика обработки персональных данных" in privacy
     assert "название и ИНН" in privacy, "в политике нет сбора названия и ИНН организаций"
