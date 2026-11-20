@@ -3,7 +3,7 @@
  * Черновик хранится в localStorage (`DRAFT_KEY`); согласие на обработку данных в него НЕ попадает:
  * его нужно отметить осознанно при каждой отправке (после перезагрузки это один тап).
  */
-import { ACCESS_FIELDS, orderSchema, zodFields, type Materials, type OrderInputRaw } from "./order-schema";
+import { ACCESS_FIELDS, CLIENT_TYPES, orderSchema, zodFields, type ClientType, type Materials, type OrderInputRaw } from "./order-schema";
 import type { CartItem } from "./cart";
 
 export const DRAFT_KEY = "zaprosto-draft-v1";
@@ -14,6 +14,11 @@ export const MAX_PHOTOS = 3;
 export type AccessField = (typeof ACCESS_FIELDS)[number];
 
 export interface FormValues {
+  /** Кто заказывает; реквизиты ниже учитываются только у организации. */
+  clientType: ClientType;
+  orgName: string;
+  orgInn: string;
+  wantsInvoice: boolean;
   name: string;
   phone: string;
   address: string;
@@ -27,6 +32,10 @@ export interface FormValues {
 }
 
 export const emptyForm = (): FormValues => ({
+  clientType: "person",
+  orgName: "",
+  orgInn: "",
+  wantsInvoice: false,
   name: "",
   phone: "",
   address: "",
@@ -97,6 +106,10 @@ export function parseDraft(raw: string | null | undefined, now: number = Date.no
   const a = (typeof f.access === "object" && f.access ? f.access : {}) as Record<string, unknown>;
   const materials = ["have", "self", "master", "unknown"].includes(f.materials as string) ? (f.materials as Materials) : "";
   const form: FormValues = {
+    clientType: (CLIENT_TYPES as readonly unknown[]).includes(f.clientType) ? (f.clientType as ClientType) : "person",
+    orgName: str(f.orgName, 120),
+    orgInn: str(f.orgInn, 20),
+    wantsInvoice: bool(f.wantsInvoice),
     name: str(f.name, 80),
     phone: str(f.phone, 40),
     address: str(f.address, 300),
@@ -126,10 +139,16 @@ export function parseDraft(raw: string | null | undefined, now: number = Date.no
   return { form, photos, submit };
 }
 
-/** Тело POST /api/orders. Сервер пересчитывает цены сам: суммы не отправляются. */
+/**
+ * Тело POST /api/orders. Сервер пересчитывает цены сам: суммы не отправляются.
+ * Реквизиты организации уходят только при `clientType = organization`: у частного лица их нет ни в теле, ни в отпечатке.
+ */
 export function buildPayload(form: FormValues, items: readonly CartItem[], photos: readonly PhotoItem[], consent: boolean): OrderInputRaw {
   const access = Object.fromEntries(ACCESS_FIELDS.flatMap((k) => (form.access[k].trim() ? [[k, form.access[k].trim()]] : [])));
+  const org = form.clientType === "organization";
   return {
+    clientType: form.clientType,
+    ...(org ? { orgName: form.orgName, orgInn: form.orgInn, wantsInvoice: form.wantsInvoice } : {}),
     name: form.name,
     phone: form.phone,
     address: form.address,

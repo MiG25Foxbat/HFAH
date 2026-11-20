@@ -143,6 +143,7 @@ export function OrderLive({ token, initial }: { token: string; initial: PublicOr
   }, [refresh]);
 
   const manualCount = order.lines.filter((l) => l.total === null).length;
+  const org = order.clientType === "organization" && !!order.orgName;
   const when = order.desiredDate ? `${formatDay(order.desiredDate)}${order.desiredTime ? `, ${order.desiredTime}` : ""}` : null;
 
   if (gone) {
@@ -202,6 +203,11 @@ export function OrderLive({ token, initial }: { token: string; initial: PublicOr
         <ul className="grid divide-y divide-line">
           {order.lines.map((l, i) => (
             <li key={i} className="grid gap-1 py-3 first:pt-0 last:pb-0">
+              {/* название и цвет категории — из снимка заявки (на момент заказа), правки каталога после заказа их не меняют */}
+              <span className="flex items-center gap-1.5 text-[0.8125rem] text-muted">
+                <span aria-hidden="true" className="size-2.5 rounded-full" style={{ background: l.categoryColor }} />
+                {l.categoryTitle}
+              </span>
               <div className="flex items-baseline justify-between gap-3">
                 <span className="font-medium leading-snug">{l.title}</span>
                 <span className="shrink-0 tabular-nums">{l.total === null ? "По фото" : formatRub(l.total)}</span>
@@ -226,6 +232,18 @@ export function OrderLive({ token, initial }: { token: string; initial: PublicOr
       <section aria-label="Детали" className="grid gap-3 rounded-panel border border-line bg-surface p-5">
         <h2 className="text-[1.25rem] font-semibold">Детали</h2>
         <dl className="grid gap-3 text-[0.9375rem]">
+          {org && (
+            <div>
+              <dt className="text-muted">Заказчик</dt>
+              <dd className="break-words font-medium">{order.orgName}</dd>
+            </div>
+          )}
+          {org && order.wantsInvoice && (
+            <div>
+              <dt className="text-muted">Счёт и закрывающие документы</dt>
+              <dd className="font-medium">Да</dd>
+            </div>
+          )}
           <div>
             <dt className="text-muted">Материалы и запчасти</dt>
             <dd className="font-medium">{MATERIALS_LABEL[order.materials]}</dd>
@@ -251,7 +269,7 @@ export function OrderLive({ token, initial }: { token: string; initial: PublicOr
       <section aria-label="Ссылка на заявку" className="grid gap-3 rounded-panel border border-line bg-surface p-5">
         <h2 className="text-[1.25rem] font-semibold">Ссылка на заявку</h2>
         <p className="max-w-prose text-[0.9375rem] leading-snug text-muted">
-          Ссылка приватная: любой, у кого она есть, увидит состав заявки и статус. Телефон и адрес по ней не показываются. Не публикуйте её. Изменения мастера появятся здесь же.
+          Ссылка приватная: любой, у кого она есть, увидит состав заявки, статус{org ? " и название организации" : ""}. Телефон и адрес по ней не показываются. Не публикуйте её. Изменения мастера появятся здесь же.
         </p>
         <CopyLink />
       </section>

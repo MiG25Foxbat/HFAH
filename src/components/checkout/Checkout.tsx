@@ -1,16 +1,18 @@
 "use client";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useRef, useState, type ReactNode } from "react";
+import { motion, useReducedMotion } from "motion/react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ExcludedNote } from "@/components/shop/ExcludedNote";
 import { Button, ButtonLink, Callout, CheckRow, TextArea, TextField } from "@/components/ui/controls";
 import { ChevronIcon } from "@/components/ui/icons";
+import { Segmented } from "@/components/ui/Segmented";
 import { cartSnapshot } from "@/lib/cart";
 import { cartClear, useCart, useCartReady } from "@/lib/cart-store";
 import type { Service } from "@/lib/catalog";
 import { buildPayload, nextAttempt, validateOrder, type AccessField, type FormValues } from "@/lib/checkout";
 import { draftClear, draftUpdate, flushDraft, getDraft, useDraft } from "@/lib/draft-store";
-import { MATERIALS, MATERIALS_LABEL, TIME_SLOTS, todayMoscow } from "@/lib/order-schema";
+import { MATERIALS, MATERIALS_LABEL, TIME_SLOTS, todayMoscow, type ClientType } from "@/lib/order-schema";
 import { formatRub, type PricingSettings } from "@/lib/pricing";
 import { excludedInText } from "@/lib/shop";
 import type { ExcludedItem } from "@/lib/settings";
@@ -18,11 +20,26 @@ import { uuid4 } from "@/lib/uuid";
 import { CheckoutSummary } from "./CheckoutSummary";
 import { PhotoField } from "./PhotoField";
 
-const ORDER = ["name", "phone", "address", "access", "materials", "desiredDate", "desiredTime", "photos", "comment", "consent"];
+const ORDER = ["clientType", "orgName", "orgInn", "name", "phone", "address", "access", "materials", "desiredDate", "desiredTime", "photos", "comment", "consent"];
 const groupOf = (key: string) => (key.startsWith("access.") ? "access" : key);
 const SEND_TIMEOUT_MS = 25_000;
 
 type Phase = "idle" | "sending" | "network" | "done";
+
+const CLIENT_OPTIONS: readonly { value: ClientType; label: string }[] = [
+  { value: "person", label: "Частное лицо" },
+  { value: "organization", label: "Организация" },
+];
+
+/** Настройки организаций из кабинета + `preselect` (пришли со страницы «Для офисов»: сразу выбрана организация). */
+export interface CheckoutOrgs {
+  enabled: boolean;
+  invoice: boolean;
+  note: string;
+  preselect: boolean;
+}
+
+const ORGS_OFF_MESSAGE = "Сейчас заявки от организаций не принимаются. Мы выбрали «Частное лицо»: проверьте данные и отправьте заявку снова.";
 
 const ACCESS_LABELS: Record<AccessField, { label: string; placeholder: string }> = {
   entrance: { label: "Подъезд", placeholder: "например, 2" },
@@ -66,7 +83,7 @@ function Section({ title, children, hint }: { title: string; children: ReactNode
   );
 }
 
-export function Checkout({ services, pricing, excluded }: { services: Service[]; pricing: PricingSettings; excluded: ExcludedItem[] }) {
+export function Checkout({ services, pricing, excluded, orgs }: { services: Service[]; pricing: PricingSettings; excluded: ExcludedItem[]; orgs: CheckoutOrgs }) {
   const router = useRouter();
   const ready = useCartReady();
   const { lines } = useCart();
@@ -74,7 +91,10 @@ export function Checkout({ services, pricing, excluded }: { services: Service[];
   // Значения полей живут в состоянии компонента (поле реагирует сразу, даже если ввод пришёл раньше подписки на хранилище),
   // а в черновик (localStorage) копируются при каждой правке. Форма показывается только после `ready`, поэтому чтение черновика здесь
   // не расходится с серверной разметкой.
-  const [form, setForm] = useState<FormValues>(() => getDraft().form);
+  const [form, setForm] = useState<FormValues>(() => {
+    const f = getDraft().form;
+    return orgs.preselect && orgs.enabled ? { ...f, clientType: "organization" } : f;
+  });
   const patchForm = (fn: (f: FormValues) => FormValues) => {
     const next = fn(form);
     setForm(next);
@@ -92,9 +112,25 @@ export function Checkout({ services, pricing, excluded }: { services: Service[];
   const [accessOpen, setAccessOpen] = useState<boolean | null>(null);
   const sending = useRef(false);
 
+  // Организации: раздел мог быть выключен владельцем (в том числе, пока форма была открыта) — тогда остаётся «Частное лицо».
+  const reduce = useReducedMotion();
+  const [orgsOff, setOrgsOff] = useState(false);
+  const orgsOn = orgs.enabled && !orgsOff;
+  const org = orgsOn && form.clientType === "organization";
+  const sent = useMemo<FormValues>(() => (org ? { ...form, wantsInvoice: orgs.invoice && form.wantsInvoice } : { ...form, clientType: "person" }), [form, org, orgs.invoice]);
+
+  // ссылка «Оформить заявку» со страницы «Для офисов»: выбор запоминаем в черновике и убираем параметр из адреса
+  useEffect(() => {
+    if (!orgs.preselect) return;
+    if (orgs.enabled) draftUpdate((d) => (d.form.clientType === "organization" ? d : { ...d, form: { ...d.form, clientType: "organization" } }));
+    const url = new URL(window.location.href);
+    url.searchParams.delete("client");
+    window.history.replaceState(null, "", url);
+  }, [orgs.preselect, orgs.enabled]);
+
   const snap = useMemo(() => cartSnapshot(services, pricing, lines, { urgent: form.urgent, outOfTown: form.outOfTown }), [services, pricing, lines, form.urgent, form.outOfTown]);
   const doneCount = draft.photos.filter((p) => p.status === "done").length;
-  const payload = useMemo(() => buildPayload(form, lines, draft.photos, consent), [form, lines, draft.photos, consent]);
+  const payload = useMemo(() => buildPayload(sent, lines, draft.photos, consent), [sent, lines, draft.photos, consent]);
   const errors = useMemo(() => validateOrder(payload, lines, doneCount), [payload, lines, doneCount]);
   const hasManual = lines.some((l) => l.manual);
   const accessShown = accessOpen ?? Object.values(form.access).some(Boolean);
@@ -108,7 +144,16 @@ export function Checkout({ services, pricing, excluded }: { services: Service[];
       void _gone;
       return rest;
     });
-  const err = (k: string): string | undefined => serverErrors[k] ?? (attempted || touched.has(k) ? errors[k] : undefined);
+  // у организации поля называются иначе («Контактное лицо», «Адрес офиса»), и сообщения об ошибке тоже
+  const orgWording = (k: string, m: string | undefined) =>
+    !org || !m
+      ? m
+      : k === "name" && m.startsWith("Укажите имя")
+        ? "Укажите контактное лицо — как к вам обращаться"
+        : k === "address" && m.startsWith("Укажите адрес")
+          ? "Укажите адрес офиса: улица, дом, офис"
+          : m;
+  const err = (k: string): string | undefined => orgWording(k, serverErrors[k] ?? (attempted || touched.has(k) ? errors[k] : undefined));
   const accessErr = ["entrance", "intercom", "floor", "elevator", "parking"].map((a) => err(`access.${a}`)).find(Boolean);
   const lineErrors = Object.fromEntries(
     lines.flatMap((_, i) => {
@@ -126,7 +171,7 @@ export function Checkout({ services, pricing, excluded }: { services: Service[];
     patchForm((f) => ({ ...f, access: { ...f.access, [k]: v } }));
     clearServer(`access.${k}`);
   };
-  const bind = (k: "name" | "phone" | "address" | "comment") => ({
+  const bind = (k: "name" | "phone" | "address" | "comment" | "orgName" | "orgInn") => ({
     value: form[k],
     onChange: (e: { target: { value: string } }) => set(k, e.target.value),
     onBlur: () => touch(k),
@@ -192,15 +237,23 @@ export function Checkout({ services, pricing, excluded }: { services: Service[];
           photos: d.photos.map((p) => ({ ...p, status: "error", ref: undefined, error: "Фото не найдено на сервере: срок хранения мог истечь. Удалите его и добавьте снова." })),
         }));
       }
+      // организации выключили, пока форма была открыта: возвращаем «Частное лицо» (у этой ошибки нет поля, она идёт общим сообщением)
+      const { clientType: orgsOffError, ...fieldErrors } = data?.fields ?? {};
+      if (orgsOffError) {
+        setOrgsOff(true);
+        patchForm((f) => ({ ...f, clientType: "person" }));
+      }
       if (data?.fields) {
-        setServerErrors(data.fields);
+        setServerErrors(fieldErrors);
         // сообщения у полей появятся после отрисовки: фокус переносим на следующем кадре
-        requestAnimationFrame(() => focusErrors(Object.keys(data.fields!), () => setAccessOpen(true)));
+        requestAnimationFrame(() => focusErrors(Object.keys(fieldErrors), () => setAccessOpen(true)));
       }
       setFormError(
-        res.status === 429
-          ? "Слишком много попыток. Подождите немного и отправьте заявку снова."
-          : (data?.error ?? "Не удалось отправить заявку. Проверьте поля и повторите."),
+        orgsOffError
+          ? ORGS_OFF_MESSAGE
+          : res.status === 429
+            ? "Слишком много попыток. Подождите немного и отправьте заявку снова."
+            : (data?.error ?? "Не удалось отправить заявку. Проверьте поля и повторите."),
       );
     } catch {
       clearTimeout(timer);
@@ -254,8 +307,55 @@ export function Checkout({ services, pricing, excluded }: { services: Service[];
         className="mt-6 grid items-start gap-6 min-[900px]:grid-cols-[minmax(0,1fr)_380px]"
       >
         <div className="grid gap-6">
+          {orgsOn && (
+            <Section title="Кто заказывает">
+              <Segmented
+                name="clientType"
+                legend="Кто заказывает"
+                value={sent.clientType}
+                options={CLIENT_OPTIONS}
+                onChange={(v) => {
+                  set("clientType", v);
+                  if (v === "person") clearServer("orgName");
+                }}
+              />
+              {org && (
+                <motion.div
+                  initial={reduce ? false : { opacity: 0, y: -6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ type: "spring", stiffness: 380, damping: 34 }}
+                  className="grid gap-4"
+                >
+                  <TextField id="f-orgName" label="Название организации" autoComplete="organization" maxLength={120} error={err("orgName")} {...bind("orgName")} />
+                  <TextField
+                    id="f-orgInn"
+                    label="ИНН"
+                    optional
+                    inputMode="numeric"
+                    autoComplete="off"
+                    spellCheck={false}
+                    maxLength={14}
+                    hint="10 цифр у организации, 12 у ИП."
+                    error={err("orgInn")}
+                    className="tabular-nums min-[480px]:max-w-xs"
+                    {...bind("orgInn")}
+                  />
+                  {orgs.invoice && (
+                    <CheckRow
+                      checked={form.wantsInvoice}
+                      onChange={(e) => set("wantsInvoice", e.target.checked)}
+                      title="Нужен счёт и закрывающие документы"
+                      description="Детали оплаты мастер уточнит по телефону."
+                    />
+                  )}
+                  {orgs.note && <p className="max-w-prose whitespace-pre-line text-[0.9375rem] leading-snug text-muted">{orgs.note}</p>}
+                </motion.div>
+              )}
+            </Section>
+          )}
+
           <Section title="Как с вами связаться">
-            <TextField id="f-name" label="Имя" autoComplete="name" error={err("name")} {...bind("name")} />
+            <TextField id="f-name" label={org ? "Контактное лицо" : "Имя"} autoComplete="name" error={err("name")} {...bind("name")} />
             <TextField
               id="f-phone"
               label="Телефон"
@@ -271,7 +371,14 @@ export function Checkout({ services, pricing, excluded }: { services: Service[];
           </Section>
 
           <Section title="Куда приехать">
-            <TextField id="f-address" label="Адрес" autoComplete="street-address" hint="Улица, дом, квартира." error={err("address")} {...bind("address")} />
+            <TextField
+              id="f-address"
+              label={org ? "Адрес офиса" : "Адрес"}
+              autoComplete="street-address"
+              hint={org ? "Улица, дом, офис." : "Улица, дом, квартира."}
+              error={err("address")}
+              {...bind("address")}
+            />
             <details open={accessShown} onToggle={(e) => setAccessOpen(e.currentTarget.open)} className="group rounded-field border border-line">
               <summary data-field="access" className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 px-4 font-medium">
                 <span>
@@ -414,7 +521,11 @@ export function Checkout({ services, pricing, excluded }: { services: Service[];
                   )
                 </>
               }
-              description="Имя, телефон и адрес нужны только для выезда и связи по заявке."
+              description={
+                org
+                  ? "Контактное лицо, телефон, адрес офиса, название и ИНН организации нужны только для выезда и связи по заявке."
+                  : "Имя, телефон и адрес нужны только для выезда и связи по заявке."
+              }
             />
             <div aria-live="polite">
               {err("consent") && (

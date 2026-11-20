@@ -149,3 +149,51 @@ describe("проверка перед отправкой", () => {
     expect(past.desiredDate).toBeDefined();
   });
 });
+
+describe("организация в оформлении", () => {
+  const items = cart(makeItem(shelf, { qty: 1 }));
+  const org = (o: Partial<FormValues> = {}) => form({ clientType: "organization", orgName: "ООО «Ромашка»", ...o });
+
+  it("черновик хранит тип заказчика, название, ИНН и отметку счёта", () => {
+    const d: Draft = { ...emptyDraft(), form: org({ orgInn: "7707 083893", wantsInvoice: true }) };
+    const back = parseDraft(serializeDraft(d));
+    expect(back.form).toMatchObject({ clientType: "organization", orgName: "ООО «Ромашка»", orgInn: "7707 083893", wantsInvoice: true });
+  });
+
+  it("старый черновик без этих полей читается как частное лицо", () => {
+    const old = JSON.stringify({ v: 1, form: { name: "Анна", phone: "+79123456789" }, photos: [], submit: null });
+    expect(parseDraft(old).form).toMatchObject({ clientType: "person", orgName: "", orgInn: "", wantsInvoice: false });
+    const junk = JSON.stringify({ v: 1, form: { clientType: "state", orgName: 5, wantsInvoice: "yes" }, photos: [] });
+    expect(parseDraft(junk).form).toMatchObject({ clientType: "person", orgName: "", wantsInvoice: false });
+  });
+
+  it("реквизиты уходят в тело только у организации", () => {
+    const p = buildPayload(org({ orgInn: "7707083893", wantsInvoice: true }), items.lines, [], true);
+    expect(p).toMatchObject({ clientType: "organization", orgName: "ООО «Ромашка»", orgInn: "7707083893", wantsInvoice: true });
+    // у частного лица забытые в черновике реквизиты не попадают ни в тело, ни в отпечаток
+    const person = buildPayload(form({ orgName: "ООО «Ромашка»", orgInn: "7707083893", wantsInvoice: true }), items.lines, [], true);
+    expect(person.clientType).toBe("person");
+    expect(person).not.toHaveProperty("orgName");
+    expect(person).not.toHaveProperty("orgInn");
+    expect(person).not.toHaveProperty("wantsInvoice");
+  });
+
+  it("у организации обязательно название, ИНН — только 10 или 12 цифр, пробелы допустимы", () => {
+    const check = (f: FormValues) => validateOrder(buildPayload(f, items.lines, [], true), items.lines, 0);
+    expect(check(org({ orgName: "" })).orgName).toMatch(/название/);
+    expect(check(org({ orgInn: "12345" })).orgInn).toMatch(/ИНН/);
+    expect(check(org({ orgInn: "77070838931" })).orgInn).toBeDefined();
+    expect(check(org({ orgInn: "7707 083893" }))).toEqual({});
+    expect(check(org({ orgInn: "500100732259" }))).toEqual({});
+    expect(check(org({ orgInn: "" }))).toEqual({});
+    // частному лицу название и ИНН не нужны
+    expect(check(form({ clientType: "person", orgName: "", orgInn: "12" }))).toEqual({});
+  });
+
+  it("смена тела (организация вместо частного лица) даёт новый ключ повтора", () => {
+    const person = buildPayload(form(), items.lines, [], true);
+    const company = buildPayload(org(), items.lines, [], true);
+    const a = nextAttempt(null, person, () => "k1");
+    expect(nextAttempt(a, company, () => "k2").key).toBe("k2");
+  });
+});

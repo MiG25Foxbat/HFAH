@@ -8,19 +8,30 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export default function CheckoutPage() {
+const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
+
+export default function CheckoutPage({ searchParams }: PageProps<"/checkout">) {
   return (
     <main id="main">
       <Suspense fallback={<CheckoutSkeleton />}>
-        <CheckoutData />
+        <CheckoutData searchParams={searchParams} />
       </Suspense>
     </main>
   );
 }
 
-async function CheckoutData() {
-  const { services, settings } = await getShopData();
-  return <Checkout services={services} pricing={settings.pricing} excluded={settings.company.excluded} />;
+/** `?client=organization` — ссылка со страницы «Для офисов»: в форме сразу выбрана организация. В адресе нет ничего личного. */
+async function CheckoutData({ searchParams }: Pick<PageProps<"/checkout">, "searchParams">) {
+  const [sp, { services, settings }] = await Promise.all([searchParams, getShopData()]);
+  const { excluded, orgsEnabled, invoiceEnabled, orgNote } = settings.company;
+  return (
+    <Checkout
+      services={services}
+      pricing={settings.pricing}
+      excluded={excluded}
+      orgs={{ enabled: orgsEnabled, invoice: invoiceEnabled, note: orgNote.trim(), preselect: first(sp.client) === "organization" }}
+    />
+  );
 }
 
 function CheckoutSkeleton() {
