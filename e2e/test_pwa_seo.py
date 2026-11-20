@@ -157,8 +157,16 @@ def a_server_rendered_content(browser):
     assert 'href="tel:' not in contacts and 'href="mailto:' not in contacts and "t.me" not in contacts, "заглушка выдана за контакт"
     assert settings["company"]["city"] in contacts and settings["company"]["territory"] in contacts
 
+    offices = html("/dlya-ofisov")
+    assert len(re.findall(r"<h1[ >]", offices)) == 1 and "Для офисов" in offices and '<main id="main"' in offices, "h1 /dlya-ofisov"
+    office_works = db("select title, price, unit, pricing from services s join categories c on c.id = s.category where s.active and c.active and s.office")
+    assert office_works and all(w["title"] in offices for w in office_works), "офисные работы не пришли в HTML"
+    assert all(f"{rub(w['price'])} за {units[w['unit']]}" in offices for w in office_works if w["pricing"] == "fixed"), "цены офисных работ"
+    assert "Как мы работаем с организациями" in offices and settings["company"]["orgNote"] in offices, "условия владельца для организаций"
+    assert db("select title from services s join categories c on c.id = s.category where s.active and c.active and not s.office limit 1")[0]["title"] not in offices
     privacy = html("/privacy")
     assert "Политика обработки персональных данных" in privacy
+    assert "название и ИНН" in privacy, "в политике нет сбора названия и ИНН организаций"
     assert "Заполните реквизиты оператора перед запуском" in privacy and "[не заполнено]" in privacy
     for needle in ["152-ФЗ", "localStorage", "Cookie", "фото", "Кому мы передаём данные", "Ваши права", "Сколько данные хранятся"]:
         assert needle in privacy, f"в политике нет «{needle}»"
@@ -167,7 +175,7 @@ def a_server_rendered_content(browser):
     credits = html("/credits")
     for needle in ["Golos Text", "Unbounded", "SIL Open Font License", "three.js", "React Three Fiber", "drei", "Next.js", "Motion", "sharp", "postgres", "Unlicense", "Apache-2.0", "zod", "CC0", "с нуля"]:
         assert needle in credits, f"в источниках нет «{needle}»"
-    for page_html in (uslugi, contacts, privacy, credits):
+    for page_html in (uslugi, offices, contacts, privacy, credits):
         assert page_html.count('<main id="main"') == 1
 
 
@@ -218,6 +226,7 @@ def d_metadata_and_json_ld(browser):
     titles = {
         "/": "Запросто — мастер на час: цены на работы",
         "/uslugi": "Услуги и цены — Запросто",
+        "/dlya-ofisov": "Для офисов — Запросто",
         "/contacts": "Контакты — Запросто",
         "/privacy": "Политика обработки персональных данных — Запросто",
         "/credits": "Источники и лицензии — Запросто",
@@ -247,7 +256,7 @@ def d_metadata_and_json_ld(browser):
     assert ld["@type"] == "HomeAndConstructionBusiness" and ld["name"] == settings["name"] and ld["url"] == ORIGIN + "/" and ld["image"] == ORIGIN + "/og.png"
     assert ld["address"]["addressLocality"] == settings["city"] and ld["areaServed"] == settings["territory"]
     assert "telephone" not in ld, "пустой телефон в JSON-LD"
-    for path in ("/uslugi", "/contacts", "/privacy", "/credits"):
+    for path in ("/uslugi", "/dlya-ofisov", "/contacts", "/privacy", "/credits"):
         assert "application/ld+json" not in html(path)
 
 
@@ -256,7 +265,8 @@ def e_sitemap_and_robots(browser):
     status, headers, body = fetch("/sitemap.xml")
     assert status == 200 and "xml" in headers["content-type"], headers
     locs = re.findall(r"<loc>(.*?)</loc>", body.decode())
-    assert locs == [ORIGIN + p for p in ("/", "/uslugi", "/contacts", "/privacy", "/credits")], locs
+    # «Для офисов» — пока в настройках включена работа с организациями (в демо-данных включена)
+    assert locs == [ORIGIN + p for p in ("/", "/uslugi", "/dlya-ofisov", "/contacts", "/privacy", "/credits")], locs
     for loc in locs:
         assert fetch(loc.replace(ORIGIN, ""))[0] == 200, loc
     status, headers, body = fetch("/robots.txt")
@@ -276,7 +286,7 @@ def e_sitemap_and_robots(browser):
     class rp:  # noqa: N801
         can_fetch = staticmethod(lambda _ua, url: allowed(url.replace(ORIGIN, "")))
 
-    for ok in ("/", "/uslugi", "/contacts", "/privacy", "/credits", "/offline", "/og.png", "/sw.js"):
+    for ok in ("/", "/uslugi", "/dlya-ofisov", "/contacts", "/privacy", "/credits", "/offline", "/og.png", "/sw.js"):
         assert rp.can_fetch("*", ORIGIN + ok), f"robots закрыл {ok}"
     for bad in ("/admin", "/admin/orders/1", "/o/abc", "/api/orders", "/checkout", "/dev/game"):
         assert not rp.can_fetch("*", ORIGIN + bad), f"robots не закрыл {bad}"
@@ -341,7 +351,7 @@ def h_private_routes_never_cached(browser):
     page = new_page(browser)
     page.goto(BASE + "/uslugi", wait_until="networkidle")
     sw_ready(page)
-    for path in ("/", "/checkout", "/admin", "/admin/login", "/o/doesnotexistdoesnotexistdoesnotexist12345", "/contacts", "/privacy", "/credits", "/uslugi"):
+    for path in ("/", "/checkout", "/admin", "/admin/login", "/o/doesnotexistdoesnotexistdoesnotexist12345", "/contacts", "/privacy", "/credits", "/uslugi", "/dlya-ofisov"):
         page.goto(BASE + path, wait_until="networkidle")
     page.evaluate(
         """async () => {
@@ -358,7 +368,7 @@ def h_private_routes_never_cached(browser):
     assert paths, "кеш пуст"
     private = [u for u in paths if re.match(r"^/(api|admin|o|checkout)(/|\?|$)", u)]
     assert not private, f"в кеше приватные адреса: {private}"
-    pages = [u for u in paths if re.match(r"^/(uslugi|contacts|privacy|credits)?(\?.*)?$", u)]
+    pages = [u for u in paths if re.match(r"^/(uslugi|dlya-ofisov|contacts|privacy|credits)?(\?.*)?$", u)]
     assert not pages, f"в кеше страницы вместо оболочки: {pages}"
     allowed = re.compile(r"^/(offline|_next/static/|models/|posters/|icons/)")
     stray = [u for u in paths if not allowed.match(u)]
@@ -393,6 +403,8 @@ def i_offline_shows_offline_page_and_keeps_cart(browser):
         # любой другой адрес без сети — тоже офлайн-страница, но API и заявки по ссылке без подмены
         page.goto(BASE + "/o/doesnotexistdoesnotexistdoesnotexist12345", wait_until="load")
         assert page.get_by_role("heading", name="Нет соединения").is_visible()
+        page.goto(BASE + "/dlya-ofisov", wait_until="load")
+        assert page.get_by_role("heading", name="Нет соединения").is_visible(), "«Для офисов» без сети не показала офлайн-страницу"
         failed = page.evaluate("fetch('/api/orders/doesnotexistdoesnotexistdoesnotexist12345').then(() => 'ok', () => 'rejected')")
         assert failed == "rejected", "API без сети не должен отвечать из кеша"
         page.screenshot(path=os.path.join(SHOTS, "info-offline-390-light.png"), full_page=True)
@@ -426,7 +438,7 @@ def j_unknown_order_link_is_noindex_nostore(browser):
 
 @scenario
 def k_screenshots_mobile_dark_desktop(browser):
-    pages = {"uslugi": "/uslugi", "contacts": "/contacts", "privacy": "/privacy", "credits": "/credits", "offline": "/offline"}
+    pages = {"uslugi": "/uslugi", "dlya-ofisov": "/dlya-ofisov", "contacts": "/contacts", "privacy": "/privacy", "credits": "/credits", "offline": "/offline"}
     for name, path in pages.items():
         for tag, (w, h, scheme) in {"390-light": (390, 844, "light"), "390-dark": (390, 844, "dark"), "1280-light": (1280, 800, "light")}.items():
             page = new_page(browser, w, h, scheme)
