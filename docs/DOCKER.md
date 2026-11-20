@@ -24,3 +24,8 @@ server {
 
 Обновление: `git pull && docker compose up -d --build`. Логи: `docker compose logs -f app`.
 Кабинет: `https://example.ru/admin`, пароль — `OWNER_PASSWORD`. Каталог и цены владелец меняет там сам.
+
+## Быстрый вариант без своего домена (sslip.io)
+В `.env` укажите `DOMAIN=77-91-73-207.sslip.io` и `APP_ORIGIN=https://77-91-73-207.sslip.io` (IP через дефисы).
+Контейнер Caddy сам получит сертификат HTTPS — nginx и certbot не нужны. Порты 80 и 443 должны быть открыты.
+Для своего домена позже: поменяйте обе строки на домен и выполните `docker compose up -d --build`.

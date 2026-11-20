@@ -26,5 +26,18 @@ services:
       CLIENT_IP_HEADER: x-real-ip
     ports:
       - "127.0.0.1:3000:3000"
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    depends_on: [app]
+    environment:
+      DOMAIN: ${DOMAIN}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
 volumes:
   pgdata:
+  caddy_data:
