@@ -19,7 +19,7 @@ function Facts({ items }: { items: { term: string; value: ReactNode }[] }) {
       {items.map((i) => (
         <div key={i.term} className="contents">
           <dt className="text-[0.875rem] text-muted min-[640px]:pt-0.5">{i.term}</dt>
-          <dd className="min-w-0 break-words">{i.value}</dd>
+          <dd className="min-w-0 wrap-anywhere">{i.value}</dd>
         </div>
       ))}
     </dl>
@@ -43,7 +43,7 @@ export function OrderHeader({ order }: { order: OrderDetail }) {
         Поступила {formatDateTime(order.createdAt)}.{changed ? ` Изменена ${formatDateTime(order.updatedAt)}.` : ""}
       </p>
       <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-3">
-        <p className="text-[1.125rem] font-medium">{order.customerName}</p>
+        <p className="min-w-0 max-w-full wrap-anywhere text-[1.125rem] font-medium">{order.customerName}</p>
         <div className="flex flex-wrap items-center gap-3">
           <a href={`tel:${order.phone}`} className={button("primary", "md", "tabular-nums")}>
             <Icon name="phone" className="size-5" />

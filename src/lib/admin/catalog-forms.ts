@@ -11,6 +11,24 @@ const fail = (fields: Record<string, string>): { ok: false; fields: Record<strin
 const MAX_RUB = 1_000_000;
 const intIn = (s: string, min: number, max: number) => (/^\d{1,9}$/.test(s) && Number(s) >= min && Number(s) <= max ? Number(s) : null);
 
+/** Название: пустое — «Укажите название», слишком короткое и слишком длинное — свои тексты. Первое сообщение у поля — самое точное. */
+const nameSchema = (max: number) =>
+  z.string({ error: "Укажите название" }).trim().min(1, "Укажите название").min(2, "Название — не короче 2 символов").max(max, `Название — не длиннее ${max} символов`);
+
+/**
+ * Цена и норма времени фиксированной работы. Проверяются всегда вместе с остальными полями формы, чтобы владелец видел все
+ * ошибки сразу, а не по одной после каждого нажатия.
+ */
+function fixedPart(raw: unknown): { fields: Record<string, string>; price: number | null; minutes: number | null } {
+  const o = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+  const price = intIn(String(o.price ?? "").trim(), 0, MAX_RUB);
+  const minutes = intIn(String(o.minutes ?? "").trim(), 0, 1440);
+  const fields: Record<string, string> = {};
+  if (price === null) fields.price = "Цена — целое число рублей от 0 до 1 000 000";
+  if (minutes === null) fields.minutes = "Норма — целое число минут от 0 до 1440";
+  return { fields, price, minutes };
+}
+
 /** Сколько категорий можно создать: больше — не помещаются в чипы и на кольцо подиума. */
 export const MAX_CATEGORIES = 12;
 
@@ -31,7 +49,7 @@ export interface CategoryFormValues {
 }
 
 const categorySchema = z.object({
-  title: z.string({ error: "Укажите название" }).trim().min(2, "Название — не короче 2 символов").max(40, "Название — не длиннее 40 символов"),
+  title: nameSchema(40),
   color: z.string({ error: "Выберите цвет" }).regex(/^#[0-9A-Fa-f]{6}$/, "Выберите цвет из образцов"),
   character: z.enum(CHARACTER_KEYS, { error: "Выберите персонажа" }),
   active: z.boolean().default(true),
@@ -76,7 +94,7 @@ export interface ServicePatchInput {
 }
 
 const serviceFormSchema = z.object({
-  title: z.string().trim().min(2, "Название — не короче 2 символов").max(120, "Название — не длиннее 120 символов").optional(),
+  title: nameSchema(120).optional(),
   description: z.string().trim().max(500, "Описание — не длиннее 500 символов").optional(),
   category: z.string().min(1, "Выберите категорию").max(80).optional(),
   office: z.boolean().optional(),
@@ -93,22 +111,18 @@ const serviceFormSchema = z.object({
  */
 export function parseServiceForm(values: unknown, pricing: PricingKind): Parsed<ServicePatchInput> {
   const r = serviceFormSchema.safeParse(values);
-  if (!r.success) return fail(zodFields(r.error));
+  const fixed = pricing === "fixed" ? fixedPart(values) : null;
+  const fields = { ...(fixed?.fields ?? {}), ...(r.success ? {} : zodFields(r.error)) };
+  if (!r.success || Object.keys(fields).length) return fail(fields);
   const v = r.data;
   const patch: ServicePatchInput = { memo: v.memo, active: v.active };
   if (v.title !== undefined) patch.title = v.title;
   if (v.description !== undefined) patch.description = v.description;
   if (v.category !== undefined) patch.category = v.category;
   if (v.office !== undefined) patch.office = v.office;
-  if (pricing === "fixed") {
-    const fields: Record<string, string> = {};
-    const price = intIn(v.price, 0, MAX_RUB);
-    const minutes = intIn(v.minutes, 0, 1440);
-    if (price === null) fields.price = "Цена — целое число рублей от 0 до 1 000 000";
-    if (minutes === null) fields.minutes = "Норма — целое число минут от 0 до 1440";
-    if (price === null || minutes === null) return fail(fields);
-    patch.price = price;
-    patch.minutes = minutes;
+  if (fixed) {
+    patch.price = fixed.price as number;
+    patch.minutes = fixed.minutes as number;
     patch.dismantleAllowed = v.dismantleAllowed;
   }
   return { ok: true, data: patch };
@@ -140,7 +154,7 @@ export interface NewServiceFormValues {
 }
 
 const newServiceSchema = z.object({
-  title: z.string({ error: "Укажите название" }).trim().min(2, "Название — не короче 2 символов").max(120, "Название — не длиннее 120 символов"),
+  title: nameSchema(120),
   description: z.string().trim().max(500, "Описание — не длиннее 500 символов").default(""),
   pricing: z.enum(PRICING_KINDS as [PricingKind, ...PricingKind[]], { error: "Выберите вид расчёта" }),
   unit: z.enum(UNITS as [Unit, ...Unit[]], { error: "Выберите единицу" }).default("pcs"),
@@ -157,7 +171,11 @@ const newServiceSchema = z.object({
  */
 export function parseNewServiceForm(values: unknown): Parsed<NewServiceInput> {
   const r = newServiceSchema.safeParse(values);
-  if (!r.success) return fail(zodFields(r.error));
+  // цена и норма проверяются вместе с остальным, если вид расчёта не выбран или «фиксированная цена» (по умолчанию в форме)
+  const kind = values && typeof values === "object" ? (values as Record<string, unknown>).pricing : undefined;
+  const fixed = r.success ? (r.data.pricing === "fixed" ? fixedPart(values) : null) : kind === "fixed" ? fixedPart(values) : null;
+  const fields = { ...(fixed?.fields ?? {}), ...(r.success ? {} : zodFields(r.error)) };
+  if (!r.success || Object.keys(fields).length) return fail(fields);
   const v = r.data;
   const base = { title: v.title, description: v.description, memo: v.memo, office: v.office, active: true };
   if (v.pricing === "hourly") {
@@ -166,11 +184,6 @@ export function parseNewServiceForm(values: unknown): Parsed<NewServiceInput> {
   if (v.pricing === "manual") {
     return { ok: true, data: { ...base, unit: "pcs", pricing: "manual", price: null, minutes: 0, dismantleAllowed: false } };
   }
-  const fields: Record<string, string> = {};
-  const price = intIn(v.price, 0, MAX_RUB);
-  const minutes = intIn(v.minutes, 0, 1440);
-  if (price === null) fields.price = "Цена — целое число рублей от 0 до 1 000 000";
-  if (minutes === null) fields.minutes = "Норма — целое число минут от 0 до 1440";
-  if (price === null || minutes === null) return fail(fields);
-  return { ok: true, data: { ...base, unit: v.unit, pricing: "fixed", price, minutes, dismantleAllowed: v.dismantleAllowed } };
+  const { price, minutes } = fixed as NonNullable<typeof fixed>;
+  return { ok: true, data: { ...base, unit: v.unit, pricing: "fixed", price: price as number, minutes: minutes as number, dismantleAllowed: v.dismantleAllowed } };
 }

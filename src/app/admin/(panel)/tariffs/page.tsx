@@ -40,7 +40,8 @@ async function Tariffs() {
         title="Тарифы"
         lead="Категории и работы: добавляйте, переименовывайте, скрывайте, меняйте порядок и цены. Изменения действуют только для новых заявок: старые хранят состав и цены на момент отправки."
       />
-      <div className="grid gap-6">
+      {/* minmax(0,1fr): длинное слово в названии не должно растягивать колонку шире экрана */}
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-6">
         <Panel title="Как считается цена" description="Один порядок для всех заявок. Материалы и запчасти в расчёт не входят — клиенту это сказано прямо.">
           <ol className="list-decimal space-y-1.5 pl-5 text-[0.9375rem]">
             {FORMULA.map((step) => (
@@ -56,10 +57,10 @@ async function Tariffs() {
         <nav aria-label="Категории работ">
           <ul className="flex flex-wrap gap-2">
             {categories.map((c) => (
-              <li key={c.id}>
-                <a href={`#cat-${c.id}`} className="flex min-h-11 items-center gap-2 rounded-full border border-line bg-surface px-4 text-[0.9375rem] hover:bg-surface-2">
-                  <span aria-hidden className="size-2.5 rounded-full" style={{ background: c.color }} />
-                  {c.title}
+              <li key={c.id} className="max-w-full">
+                <a href={`#cat-${c.id}`} className="flex min-h-11 max-w-full items-center gap-2 rounded-full border border-line bg-surface px-4 py-1.5 text-[0.9375rem] hover:bg-surface-2">
+                  <span aria-hidden className="size-2.5 shrink-0 rounded-full" style={{ background: c.color }} />
+                  <span className="min-w-0 wrap-anywhere">{c.title}</span>
                 </a>
               </li>
             ))}
@@ -74,9 +75,9 @@ async function Tariffs() {
               id={`cat-${c.id}`}
               className="scroll-mt-24"
               title={
-                <span className="flex items-center gap-3">
-                  <span aria-hidden className="size-3 rounded-full" style={{ background: c.color }} />
-                  {c.title}
+                <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                  <span aria-hidden className="size-3 shrink-0 rounded-full" style={{ background: c.color }} />
+                  <span className="min-w-0 wrap-anywhere">{c.title}</span>
                   <span className="text-[0.9375rem] font-normal text-muted">работ: {items.length}</span>
                   {!c.active && <Tag tone="warn">Скрыта от клиентов</Tag>}
                 </span>

@@ -109,7 +109,6 @@ export function CompanyForm({ initial }: { initial: Company }) {
             label="Условия для организаций"
             name="orgNote"
             rows={3}
-            maxLength={300}
             value={org.orgNote}
             onChange={(e) => setOrg((p) => ({ ...p, orgNote: e.target.value }))}
             error={error("orgNote")}

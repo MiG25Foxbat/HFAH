@@ -352,6 +352,10 @@ def run():
         pub = browser.new_context(**ctx_args)
         pp = pub.new_page()
 
+        LONG_CAT = "Щ" * 34 + RUN  # 40 знаков без пробелов
+        LONG_WORK = "Ц" * 114 + RUN  # 120 знаков без пробелов
+        MAX_CATEGORIES = 12
+
         def titles(sel):
             # textContent, а не innerText: строки прайса вне экрана пропускаются (content-visibility) и дают пустой innerText
             return [norm(t).strip() for t in op.evaluate("s => [...document.querySelectorAll(s)].map(e => e.textContent)", sel)]
@@ -359,156 +363,267 @@ def run():
         def wait_first(sec_sel, text):
             op.wait_for_function("a => (document.querySelector(a.s + ' ul > li')?.innerText || '').includes(a.t)", arg={"s": sec_sel, "t": text}, timeout=10000)
 
-        op.goto(f"{BASE}/admin/tariffs")
-        cats = op.locator("#categories")
-        cats.wait_for()
-        ctext = norm(cats.inner_text())
-        check(all(t in ctext for t in ["Мебель", "Сантехника", "Электрика", "Ремонт", "Бытовая техника", "Другое"]), "каталог: в списке шесть категорий", ctext[:300])
-        check(ctext.index("Ремонт") < ctext.index("Бытовая техника") < ctext.index("Другое"), "каталог: порядок категорий — «Бытовая техника» перед «Другое»")
-        check("Персонаж: Стиральная машина" in ctext, "каталог: у «Бытовой техники» персонаж — стиральная машина", ctext[:400])
-        check(op.locator("#cat-appliances").count() == 1 and "Подключение стиральной машины" in norm(op.locator("#cat-appliances").text_content() or ""), "каталог: у «Бытовой техники» есть свои работы")
+        def confirm(dialog_button):
+            op.get_by_role("dialog").get_by_role("button", name=dialog_button).click()
 
-        # создать категорию с выбранным цветом и персонажем
-        cats.get_by_role("button", name="Добавить категорию").click()
-        cats.get_by_label("Название").fill(CAT)
-        cats.locator("label[title='Бирюза']").click()
-        cats.get_by_label("Персонаж").select_option("repair")
-        cats.get_by_role("button", name="Создать категорию").click()
-        cats.get_by_text("Категория создана").first.wait_for(timeout=10000)
-        li_cat = cats.locator("li", has_text=CAT).first
-        li_cat.wait_for(timeout=10000)
-        check("Персонаж: Валик" in norm(li_cat.inner_text()), "каталог: новая категория с персонажем «Валик»", norm(li_cat.inner_text()))
-        dot = li_cat.locator("span[aria-hidden]").first.evaluate("e => getComputedStyle(e).backgroundColor")
-        check(dot == "rgb(91, 181, 200)", "каталог: цвет категории — выбранный образец «Бирюза»", dot)
-        sec = op.locator(f"#cat-{CAT_ID}")
-        sec.wait_for(timeout=10000)
-        check("В категории пока нет работ" in norm(sec.inner_text()), "каталог: новая категория пуста, есть «Добавить работу»")
+        def make_room():
+            """Места под две новые категории; на «грязной» базе удаляем пустые категории прежних прогонов e2e (в названии «E2E-»)."""
+            cats_ = op.locator("#categories")
+            for _ in range(MAX_CATEGORIES):
+                if cats_.locator("ol > li").count() <= MAX_CATEGORIES - 2:
+                    return True
+                old = cats_.locator("li").filter(has_text="E2E-").filter(has=op.get_by_role("button", name=re.compile("^Удалить категорию")))
+                if old.count() == 0:
+                    return False
+                old.first.get_by_role("button", name=re.compile("^Удалить категорию")).click()
+                confirm("Удалить категорию")
+                op.wait_for_timeout(1200)
+            return False
 
-        # добавить две работы
-        sec.get_by_role("button", name=re.compile("Добавить работу в категорию")).click()
-        sec.get_by_label("Название").fill("")
-        sec.get_by_role("button", name="Добавить работу", exact=True).click()
-        check(sec.get_by_text("Название — не короче 2 символов").first.is_visible(), "каталог: пустое название работы — ошибка у поля")
-        sec.get_by_label("Название").fill(W1)
-        sec.get_by_label("Цена за единицу").fill("1234")
-        sec.get_by_label("Норма времени").fill("30")
-        sec.get_by_label("Подходит для офиса").check()
-        sec.get_by_role("button", name="Добавить работу", exact=True).click()
-        sec.get_by_text("добавлена в конец категории").first.wait_for(timeout=10000)
-        row1 = sec.locator("li", has_text=W1).first
-        row1.wait_for(timeout=10000)
-        t1 = norm(row1.inner_text())
-        check("1 234 ₽ за шт" in t1 and "Для офиса" in t1, "каталог: добавленная работа с ценой и отметкой «Для офиса»", t1)
-        sec.get_by_role("button", name=re.compile("Добавить работу в категорию")).click()
-        sec.get_by_label("Название").fill(W2)
-        sec.get_by_label("Как считается цена").select_option("manual")
-        check(sec.get_by_label("Цена за единицу").count() == 0, "каталог: у работы «по фото» поля цены нет")
-        sec.get_by_role("button", name="Добавить работу", exact=True).click()
-        sec.locator("li", has_text=W2).first.wait_for(timeout=10000)
-        check("по фото" in norm(sec.locator("li", has_text=W2).first.inner_text()), "каталог: работа «по фото» добавлена")
-        check(titles(f"#cat-{CAT_ID} ul > li p.font-medium")[0].startswith(W1), "каталог: новые работы встают в конец категории по порядку добавления")
+        def delete_leftovers():
+            """Убирает всё, что создал этот прогон (на случай сбоя посередине): работы, затем пустые категории."""
+            try:
+                op.goto(f"{BASE}/admin/tariffs")
+                op.locator("#categories").wait_for()
+                for _ in range(40):
+                    row = op.locator("main li").filter(has_text=RUN).filter(has=op.get_by_role("button", name=re.compile("^Удалить: ")))
+                    if row.count() == 0:
+                        break
+                    row.first.get_by_role("button", name=re.compile("^Удалить: ")).click()
+                    confirm("Удалить работу")
+                    op.wait_for_timeout(900)
+                for _ in range(MAX_CATEGORIES):
+                    row = op.locator("#categories li").filter(has_text=RUN).filter(has=op.get_by_role("button", name=re.compile("^Удалить категорию")))
+                    if row.count() == 0:
+                        break
+                    row.first.get_by_role("button", name=re.compile("^Удалить категорию")).click()
+                    confirm("Удалить категорию")
+                    op.wait_for_timeout(900)
+            except Exception as e:  # уборка не должна скрывать настоящую ошибку теста
+                print(f"WARN уборка каталога: {e}")
 
-        # порядок: вторая работа выше первой (кнопкой и с клавиатуры)
-        up = sec.get_by_role("button", name=f"Выше: {W2}")
-        up.focus()
-        op.keyboard.press("Enter")
-        wait_first(f"#cat-{CAT_ID}", W2)
-        check(True, "каталог: «Выше» (с клавиатуры) поменял работы местами")
-        op.wait_for_timeout(300)
-        check(op.evaluate("document.activeElement?.getAttribute('aria-label')") == f"Выше: {W2}", "каталог: после перестановки фокус остался на той же кнопке", str(op.evaluate("document.activeElement?.getAttribute('aria-label')")))
-        sec.get_by_role("button", name=f"Ниже: {W2}").click()
-        wait_first(f"#cat-{CAT_ID}", W1)
-        op.wait_for_timeout(500)
-        sec.get_by_role("button", name=f"Выше: {W2}").click()
-        wait_first(f"#cat-{CAT_ID}", W2)
-        check(True, "каталог: «Ниже» вернул порядок, «Выше» поставил снова")
-        op.wait_for_timeout(500)
+        def catalog_flow():
+            op.goto(f"{BASE}/admin/tariffs")
+            cats = op.locator("#categories")
+            cats.wait_for()
+            # База может быть «грязной» (прежние прогоны): места под две новые категории должно хватать, иначе поток пропускается
+            if not make_room():
+                check("Достигнут предел: 12 категорий" in norm(cats.inner_text()) and cats.get_by_role("button", name="Добавить категорию").count() == 0, "каталог: при 12 категориях кнопки «Добавить категорию» нет, сказано про предел")
+                print("SKIP редактор каталога: в базе 12 категорий, убрать их автоматически нельзя")
+                return
+            ctext = norm(cats.inner_text())
+            check(all(t in ctext for t in ["Мебель", "Сантехника", "Электрика", "Ремонт", "Бытовая техника", "Другое"]), "каталог: в списке шесть категорий", ctext[:300])
+            check(ctext.index("Ремонт") < ctext.index("Бытовая техника") < ctext.index("Другое"), "каталог: порядок категорий — «Бытовая техника» перед «Другое»")
+            check("Персонаж: Стиральная машина" in ctext, "каталог: у «Бытовой техники» персонаж — стиральная машина", ctext[:400])
+            check(op.locator("#cat-appliances").count() == 1 and "Подключение стиральной машины" in norm(op.locator("#cat-appliances").text_content() or ""), "каталог: у «Бытовой техники» есть свои работы")
 
-        # скрыть первую работу: на сайте её нет, у владельца помечена
-        sec.get_by_role("button", name=f"Скрыть: {W1}").click()
-        sec.locator("li", has_text=W1).get_by_text("Скрыта от клиентов", exact=True).wait_for(timeout=10000)
-        pp.goto(f"{BASE}/uslugi", wait_until="networkidle")
-        ptext = norm(pp.locator("main").inner_text())
-        check(CAT in ptext and W2 in ptext and W1 not in ptext, "каталог: на сайте видна категория и вторая работа, скрытой первой нет", ptext[-300:])
+            # создать категорию: пустое и слишком длинное название — понятные ошибки у поля, ввод не обрезается молча
+            cats.get_by_role("button", name="Добавить категорию").click()
+            cats.get_by_role("button", name="Создать категорию").click()
+            check(cats.get_by_text("Укажите название", exact=True).first.is_visible(), "каталог: пустое название категории — «Укажите название» у поля")
+            cats.get_by_label("Название").fill("Я" * 45)
+            check(len(cats.get_by_label("Название").input_value()) == 45, "каталог: поле названия не обрезает ввод молча")
+            cats.get_by_role("button", name="Создать категорию").click()
+            check(cats.get_by_text("Название — не длиннее 40 символов").first.is_visible(), "каталог: 45 знаков — ошибка «не длиннее 40 символов» у поля")
+            # создать категорию с выбранным цветом и персонажем
+            cats.get_by_label("Название").fill(CAT)
+            cats.locator("label[title='Бирюза']").click()
+            cats.get_by_label("Персонаж").select_option("repair")
+            cats.get_by_role("button", name="Создать категорию").click()
+            cats.get_by_text("Категория создана").first.wait_for(timeout=10000)
+            li_cat = cats.locator("li", has_text=CAT).first
+            li_cat.wait_for(timeout=10000)
+            check("Персонаж: Валик" in norm(li_cat.inner_text()), "каталог: новая категория с персонажем «Валик»", norm(li_cat.inner_text()))
+            dot = li_cat.locator("span[aria-hidden]").first.evaluate("e => getComputedStyle(e).backgroundColor")
+            check(dot == "rgb(91, 181, 200)", "каталог: цвет категории — выбранный образец «Бирюза»", dot)
+            sec = op.locator(f"#cat-{CAT_ID}")
+            sec.wait_for(timeout=10000)
+            check("В категории пока нет работ" in norm(sec.inner_text()), "каталог: новая категория пуста, есть «Добавить работу»")
 
-        # переименовать категорию и сменить персонажа; id остаётся прежним
-        li_cat = cats.locator("li", has_text=CAT).first
-        li_cat.get_by_role("button", name=re.compile("Изменить категорию")).click()
-        li_cat.get_by_label("Название").fill(CAT2)
-        li_cat.get_by_label("Персонаж").select_option("appliances")
-        li_cat.get_by_role("button", name="Сохранить", exact=True).click()
-        cats.locator("li", has_text=CAT2).first.get_by_text("Сохранено.").wait_for(timeout=10000)
-        check("Персонаж: Стиральная машина" in norm(cats.locator("li", has_text=CAT2).first.inner_text()), "каталог: категория переименована, персонаж сменён")
-        check(op.locator(f"#cat-{CAT_ID}").count() == 1, "каталог: после переименования id категории прежний")
+            # добавить две работы
+            sec.get_by_role("button", name=re.compile("Добавить работу в категорию")).click()
+            sec.get_by_label("Название").fill("")
+            sec.get_by_label("Цена за единицу").fill("-5")
+            sec.get_by_label("Норма времени").fill("")
+            sec.get_by_role("button", name="Добавить работу", exact=True).click()
+            check(sec.get_by_text("Укажите название", exact=True).first.is_visible(), "каталог: пустое название работы — «Укажите название» у поля")
+            check(sec.get_by_text("Цена — целое число рублей от 0 до 1 000 000").first.is_visible(), "каталог: неверная цена — ошибка у поля цены, не только общая строка")
+            check(sec.get_by_text("Норма — целое число минут от 0 до 1440").first.is_visible(), "каталог: пустая норма времени — ошибка у поля нормы")
+            check(sec.get_by_text("Проверьте поля, отмеченные ошибкой").count() <= 1, "каталог: общая строка не подменяет ошибки полей")
+            sec.get_by_label("Название").fill(W1)
+            sec.get_by_label("Цена за единицу").fill("1234")
+            sec.get_by_label("Норма времени").fill("30")
+            sec.get_by_label("Подходит для офиса").check()
+            sec.get_by_role("button", name="Добавить работу", exact=True).click()
+            sec.get_by_text("добавлена в конец категории").first.wait_for(timeout=10000)
+            row1 = sec.locator("li", has_text=W1).first
+            row1.wait_for(timeout=10000)
+            t1 = norm(row1.inner_text())
+            check("1 234 ₽ за шт" in t1 and "Для офиса" in t1, "каталог: добавленная работа с ценой и отметкой «Для офиса»", t1)
+            sec.get_by_role("button", name=re.compile("Добавить работу в категорию")).click()
+            sec.get_by_label("Название").fill(W2)
+            sec.get_by_label("Как считается цена").select_option("manual")
+            check(sec.get_by_label("Цена за единицу").count() == 0, "каталог: у работы «по фото» поля цены нет")
+            sec.get_by_role("button", name="Добавить работу", exact=True).click()
+            sec.locator("li", has_text=W2).first.wait_for(timeout=10000)
+            check("по фото" in norm(sec.locator("li", has_text=W2).first.inner_text()), "каталог: работа «по фото» добавлена")
+            check(titles(f"#cat-{CAT_ID} ul > li p.font-medium")[0].startswith(W1), "каталог: новые работы встают в конец категории по порядку добавления")
 
-        # порядок категорий: на одну позицию выше (поменялась с «Другое»)
-        before = norm(cats.inner_text())
-        cats.get_by_role("button", name=f"Выше: {CAT2}").click()
-        op.wait_for_function("a => document.querySelector('#categories').innerText.replace(/\\u00a0/g,' ').indexOf(a.t) < document.querySelector('#categories').innerText.replace(/\\u00a0/g,' ').indexOf('Другое')", arg={"t": CAT2}, timeout=10000)
-        check(before.index("Другое") < before.index(CAT2) and norm(cats.inner_text()).index(CAT2) < norm(cats.inner_text()).index("Другое"), "каталог: категория поднялась выше «Другое»")
+            # порядок: вторая работа выше первой (кнопкой и с клавиатуры)
+            up = sec.get_by_role("button", name=f"Выше: {W2}")
+            up.focus()
+            op.keyboard.press("Enter")
+            wait_first(f"#cat-{CAT_ID}", W2)
+            check(True, "каталог: «Выше» (с клавиатуры) поменял работы местами")
+            op.wait_for_timeout(300)
+            check(op.evaluate("document.activeElement?.getAttribute('aria-label')") == f"Выше: {W2}", "каталог: после перестановки фокус остался на той же кнопке", str(op.evaluate("document.activeElement?.getAttribute('aria-label')")))
+            sec.get_by_role("button", name=f"Ниже: {W2}").click()
+            wait_first(f"#cat-{CAT_ID}", W1)
+            op.wait_for_timeout(500)
+            sec.get_by_role("button", name=f"Выше: {W2}").click()
+            wait_first(f"#cat-{CAT_ID}", W2)
+            check(True, "каталог: «Ниже» вернул порядок, «Выше» поставил снова")
+            op.wait_for_timeout(500)
 
-        # скрыть и показать категорию целиком
-        cats.get_by_role("button", name=f"Скрыть категорию: {CAT2}").click()
-        cats.locator("li", has_text=CAT2).get_by_text("Скрыта от клиентов", exact=True).wait_for(timeout=10000)
-        pp.goto(f"{BASE}/", wait_until="networkidle")
-        check(pp.get_by_role("button", name=CAT2).count() == 0, "каталог: скрытая категория пропала с главной сайта")
-        cats.get_by_role("button", name=f"Показать категорию: {CAT2}").click()
-        cats.locator("li", has_text=CAT2).get_by_text("Скрыта от клиентов", exact=True).wait_for(state="detached", timeout=10000)
-        pp.goto(f"{BASE}/", wait_until="networkidle")
-        check(pp.get_by_role("button", name=CAT2).count() == 1, "каталог: показанная категория снова на главной сайта")
+            # скрыть первую работу: на сайте её нет, у владельца помечена
+            sec.get_by_role("button", name=f"Скрыть: {W1}").click()
+            sec.locator("li", has_text=W1).get_by_text("Скрыта от клиентов", exact=True).wait_for(timeout=10000)
+            pp.goto(f"{BASE}/uslugi", wait_until="networkidle")
+            ptext = norm(pp.locator("main").inner_text())
+            check(CAT in ptext and W2 in ptext and W1 not in ptext, "каталог: на сайте видна категория и вторая работа, скрытой первой нет", ptext[-300:])
 
-        # телефон 360 px: редактор не даёт горизонтальной прокрутки, цели касания не меньше 44 px
-        mob360 = browser.new_context(**ctx_args, viewport={"width": 360, "height": 800}, storage_state=owner_state, is_mobile=True, has_touch=True)
-        m3 = mob360.new_page()
-        m3.goto(f"{BASE}/admin/tariffs")
-        m3.locator("#categories").wait_for()
-        m3.locator("#categories li", has_text=CAT2).first.get_by_role("button", name=re.compile("Изменить категорию")).click()
-        m3.locator(f"#cat-{CAT_ID} li", has_text=W2).first.get_by_role("button", name=re.compile("^Изменить")).click()
-        m3.get_by_role("button", name=re.compile("Добавить работу в категорию")).first.click()
-        m3.wait_for_timeout(300)
-        over = m3.evaluate("document.documentElement.scrollWidth - document.documentElement.clientWidth")
-        check(over <= 0, "телефон 360 px: редактор каталога без горизонтальной прокрутки", str(over))
-        small = m3.evaluate(
-            """() => [...document.querySelectorAll('#categories button, #categories label[title], #categories select, #categories input[type=text], form button, form select, form input[type=text], form textarea')]
-                 .map(e => { const r = e.getBoundingClientRect(); return [e.getAttribute('aria-label') || e.title || e.textContent.trim().slice(0, 24), Math.round(r.width), Math.round(r.height)]; })
-                 .filter(([, w, h]) => w > 0 && h > 0 && (w < 44 || h < 44))"""
-        )
-        check(not small, "телефон 360 px: все кнопки и поля редактора не меньше 44 px", str(small[:5]))
-        shot(m3, "catalog-mobile-360", full=False)
-        mob360.close()
+            # правка работы: пустое название и неверная цена показываются вместе
+            row1 = sec.locator("li", has_text=W1).first
+            row1.get_by_role("button", name=re.compile("^Изменить")).click()
+            row1.get_by_label("Название").fill("")
+            row1.get_by_label("Цена за единицу").fill("abc")
+            row1.get_by_role("button", name="Сохранить", exact=True).click()
+            check(row1.get_by_text("Укажите название", exact=True).first.is_visible() and row1.get_by_text("Цена — целое число рублей").first.is_visible(), "каталог: правка работы — ошибки названия и цены у своих полей")
+            row1.get_by_role("button", name="Отмена").click()
 
-        # перенос работы в другую категорию и удаление с подтверждением
-        row2 = sec.locator("li", has_text=W2).first
-        row2.get_by_role("button", name=re.compile("^Изменить")).click()
-        row2.get_by_label("Название").fill(W2 + " (правка)")
-        row2.get_by_label("Категория").select_option("furniture")
-        row2.get_by_role("button", name="Сохранить", exact=True).click()
-        fur = op.locator("#cat-furniture")
-        fur.locator("li", has_text=W2 + " (правка)").first.wait_for(timeout=10000)
-        check(sec.locator("li", has_text=W2).count() == 0, "каталог: работа перенесена в «Мебель» и переименована")
-        check(titles("#cat-furniture ul > li p.font-medium")[-1].startswith(W2), "каталог: перенесённая работа стоит в конце новой категории")
-        fur.get_by_role("button", name=f"Удалить: {W2} (правка)").click()
-        dlg = op.get_by_role("dialog")
-        dlg.wait_for()
-        check("Прошлые заявки не изменятся" in norm(dlg.inner_text()), "каталог: окно удаления работы говорит, что старые заявки не меняются")
-        dlg.get_by_role("button", name="Отмена").click()
-        check(fur.locator("li", has_text=W2).count() == 1, "каталог: «Отмена» не удаляет работу")
-        fur.get_by_role("button", name=f"Удалить: {W2} (правка)").click()
-        op.get_by_role("dialog").get_by_role("button", name="Удалить работу").click()
-        fur.locator("li", has_text=W2).first.wait_for(state="detached", timeout=10000)
-        check(True, "каталог: работа удалена после подтверждения")
+            # переименовать категорию и сменить персонажа; id остаётся прежним
+            li_cat = cats.locator("li", has_text=CAT).first
+            li_cat.get_by_role("button", name=re.compile("Изменить категорию")).click()
+            li_cat.get_by_label("Название").fill(CAT2)
+            li_cat.get_by_label("Персонаж").select_option("appliances")
+            li_cat.get_by_role("button", name="Сохранить", exact=True).click()
+            cats.locator("li", has_text=CAT2).first.get_by_text("Сохранено.").wait_for(timeout=10000)
+            check("Персонаж: Стиральная машина" in norm(cats.locator("li", has_text=CAT2).first.inner_text()), "каталог: категория переименована, персонаж сменён")
+            check(op.locator(f"#cat-{CAT_ID}").count() == 1, "каталог: после переименования id категории прежний")
 
-        # пустую категорию удалить можно, непустую нельзя
-        check(cats.get_by_role("button", name=f"Удалить категорию: {CAT2}").count() == 0, "каталог: у категории с работами кнопки «Удалить» нет")
-        sec.get_by_role("button", name=f"Удалить: {W1}").click()
-        op.get_by_role("dialog").get_by_role("button", name="Удалить работу").click()
-        sec.locator("li", has_text=W1).first.wait_for(state="detached", timeout=10000)
-        cats.get_by_role("button", name=f"Удалить категорию: {CAT2}").wait_for(timeout=10000)
-        cats.get_by_role("button", name=f"Удалить категорию: {CAT2}").click()
-        op.get_by_role("dialog").get_by_role("button", name="Удалить категорию").click()
-        cats.locator("li", has_text=CAT2).first.wait_for(state="detached", timeout=10000)
-        check(op.locator(f"#cat-{CAT_ID}").count() == 0, "каталог: пустая категория удалена вместе с разделом")
-        pub.close()
+            # порядок категорий: на одну позицию выше (поменялась с «Другое»)
+            before = norm(cats.inner_text())
+            cats.get_by_role("button", name=f"Выше: {CAT2}").click()
+            op.wait_for_function("a => document.querySelector('#categories').innerText.replace(/\\u00a0/g,' ').indexOf(a.t) < document.querySelector('#categories').innerText.replace(/\\u00a0/g,' ').indexOf('Другое')", arg={"t": CAT2}, timeout=10000)
+            check(before.index("Другое") < before.index(CAT2) and norm(cats.inner_text()).index(CAT2) < norm(cats.inner_text()).index("Другое"), "каталог: категория поднялась выше «Другое»")
+
+            # скрыть и показать категорию целиком
+            cats.get_by_role("button", name=f"Скрыть категорию: {CAT2}").click()
+            cats.locator("li", has_text=CAT2).get_by_text("Скрыта от клиентов", exact=True).wait_for(timeout=10000)
+            pp.goto(f"{BASE}/", wait_until="networkidle")
+            check(pp.get_by_role("button", name=CAT2).count() == 0, "каталог: скрытая категория пропала с главной сайта")
+            cats.get_by_role("button", name=f"Показать категорию: {CAT2}").click()
+            cats.locator("li", has_text=CAT2).get_by_text("Скрыта от клиентов", exact=True).wait_for(state="detached", timeout=10000)
+            pp.goto(f"{BASE}/", wait_until="networkidle")
+            check(pp.get_by_role("button", name=CAT2).count() == 1, "каталог: показанная категория снова на главной сайта")
+
+            # длинные названия без пробелов: категория 40 знаков, работа 120
+            cats.get_by_role("button", name="Добавить категорию").click()
+            cats.get_by_label("Название").fill(LONG_CAT)
+            cats.get_by_role("button", name="Создать категорию").click()
+            cats.get_by_text("Категория создана").first.wait_for(timeout=10000)
+            sec_long = op.locator("section[id^='cat-']", has=op.get_by_role("heading", name=LONG_CAT))
+            sec_long.wait_for(timeout=10000)
+            sec_long.get_by_role("button", name=re.compile("Добавить работу в категорию")).click()
+            sec_long.get_by_label("Название").fill(LONG_WORK)
+            sec_long.get_by_label("Цена за единицу").fill("100")
+            sec_long.get_by_label("Норма времени").fill("10")
+            sec_long.get_by_role("button", name="Добавить работу", exact=True).click()
+            sec_long.locator("li", has_text=LONG_WORK).first.wait_for(timeout=10000)
+            check(True, "каталог: категория с названием из 40 и работа из 120 знаков без пробелов созданы")
+
+            # телефон 360 px: редактор не даёт горизонтальной прокрутки, цели касания не меньше 44 px
+            mob360 = browser.new_context(**ctx_args, viewport={"width": 360, "height": 800}, storage_state=owner_state, is_mobile=True, has_touch=True)
+            m3 = mob360.new_page()
+            m3.goto(f"{BASE}/admin/tariffs")
+            m3.locator("#categories").wait_for()
+            m3.locator("#categories li", has_text=CAT2).first.get_by_role("button", name=re.compile("Изменить категорию")).click()
+            m3.locator(f"#cat-{CAT_ID} li", has_text=W2).first.get_by_role("button", name=re.compile("^Изменить")).click()
+            m3.get_by_role("button", name=re.compile("Добавить работу в категорию")).first.click()
+            m3.wait_for_timeout(300)
+            over = m3.evaluate("document.documentElement.scrollWidth - document.documentElement.clientWidth")
+            check(over <= 0, "телефон 360 px: редактор каталога без горизонтальной прокрутки", str(over))
+            small = m3.evaluate(
+                """() => [...document.querySelectorAll('#categories button, #categories label[title], #categories select, #categories input[type=text], form button, form select, form input[type=text], form textarea')]
+                     .map(e => { const r = e.getBoundingClientRect(); return [e.getAttribute('aria-label') || e.title || e.textContent.trim().slice(0, 24), Math.round(r.width), Math.round(r.height)]; })
+                     .filter(([, w, h]) => w > 0 && h > 0 && (w < 44 || h < 44))"""
+            )
+            check(not small, "телефон 360 px: все кнопки и поля редактора не меньше 44 px", str(small[:5]))
+            shot(m3, "catalog-mobile-360", full=False)
+            # те же длинные названия: страница, открытые редакторы и окно удаления не шире экрана
+            m3.reload()
+            m3.locator("#categories").wait_for()
+            long_row = m3.locator("#categories li", has_text=LONG_CAT).first
+            long_row.get_by_role("button", name=re.compile("Изменить категорию")).click()
+            long_work_row = m3.locator("section[id^='cat-']", has=m3.get_by_role("heading", name=LONG_CAT)).locator("li", has_text=LONG_WORK).first
+            long_work_row.get_by_role("button", name=re.compile("^Изменить")).click()
+            long_work_row.get_by_role("button", name=re.compile("^Удалить: ")).click()
+            m3.get_by_role("dialog").wait_for()
+            m3.wait_for_timeout(300)
+            over_long = m3.evaluate("document.documentElement.scrollWidth - document.documentElement.clientWidth")
+            dlg_box = m3.get_by_role("dialog").bounding_box()
+            check(over_long <= 0, "телефон 360 px: названия из 40 и 120 знаков без пробелов не дают горизонтальной прокрутки (список, редакторы, окно удаления)", str(over_long))
+            check(dlg_box is not None and dlg_box["x"] >= 0 and dlg_box["x"] + dlg_box["width"] <= 360, "телефон 360 px: окно удаления с длинным названием помещается в экран", str(dlg_box))
+            shot(m3, "catalog-long-names-360", full=False)
+            m3.keyboard.press("Escape")
+            mob360.close()
+            # убрать длинные примеры
+            sec_long.get_by_role("button", name=re.compile("^Удалить: ")).click()
+            op.get_by_role("dialog").get_by_role("button", name="Удалить работу").click()
+            sec_long.locator("li", has_text=LONG_WORK).first.wait_for(state="detached", timeout=10000)
+            cats.locator("li", has_text=LONG_CAT).first.get_by_role("button", name=re.compile("^Удалить категорию")).click()
+            op.get_by_role("dialog").get_by_role("button", name="Удалить категорию").click()
+            cats.locator("li", has_text=LONG_CAT).first.wait_for(state="detached", timeout=10000)
+
+            # перенос работы в другую категорию и удаление с подтверждением
+            row2 = sec.locator("li", has_text=W2).first
+            row2.get_by_role("button", name=re.compile("^Изменить")).click()
+            row2.get_by_label("Название").fill(W2 + " (правка)")
+            row2.get_by_label("Категория").select_option("furniture")
+            row2.get_by_role("button", name="Сохранить", exact=True).click()
+            fur = op.locator("#cat-furniture")
+            fur.locator("li", has_text=W2 + " (правка)").first.wait_for(timeout=10000)
+            check(sec.locator("li", has_text=W2).count() == 0, "каталог: работа перенесена в «Мебель» и переименована")
+            check(titles("#cat-furniture ul > li p.font-medium")[-1].startswith(W2), "каталог: перенесённая работа стоит в конце новой категории")
+            fur.get_by_role("button", name=f"Удалить: {W2} (правка)").click()
+            dlg = op.get_by_role("dialog")
+            dlg.wait_for()
+            check("Прошлые заявки не изменятся" in norm(dlg.inner_text()), "каталог: окно удаления работы говорит, что старые заявки не меняются")
+            dlg.get_by_role("button", name="Отмена").click()
+            check(fur.locator("li", has_text=W2).count() == 1, "каталог: «Отмена» не удаляет работу")
+            fur.get_by_role("button", name=f"Удалить: {W2} (правка)").click()
+            op.get_by_role("dialog").get_by_role("button", name="Удалить работу").click()
+            fur.locator("li", has_text=W2).first.wait_for(state="detached", timeout=10000)
+            check(True, "каталог: работа удалена после подтверждения")
+
+            # пустую категорию удалить можно, непустую нельзя
+            check(cats.get_by_role("button", name=f"Удалить категорию: {CAT2}").count() == 0, "каталог: у категории с работами кнопки «Удалить» нет")
+            check("сначала перенесите или удалите её работы" in norm(cats.locator("li", has_text=CAT2).first.inner_text()), "каталог: у категории с работами сказано, почему её нельзя удалить")
+            sec.get_by_role("button", name=f"Удалить: {W1}").click()
+            op.get_by_role("dialog").get_by_role("button", name="Удалить работу").click()
+            sec.locator("li", has_text=W1).first.wait_for(state="detached", timeout=10000)
+            cats.get_by_role("button", name=f"Удалить категорию: {CAT2}").wait_for(timeout=10000)
+            cats.get_by_role("button", name=f"Удалить категорию: {CAT2}").click()
+            op.get_by_role("dialog").get_by_role("button", name="Удалить категорию").click()
+            cats.locator("li", has_text=CAT2).first.wait_for(state="detached", timeout=10000)
+            check(op.locator(f"#cat-{CAT_ID}").count() == 0, "каталог: пустая категория удалена вместе с разделом")
+
+
+        try:
+            catalog_flow()
+        finally:
+            delete_leftovers()
+            pub.close()
 
         # ---------- организации ----------
         ORG = f"ООО «Ромашка-{RUN}»"
@@ -579,7 +694,24 @@ def run():
         op.get_by_text("Сохранено.").first.wait_for(timeout=10000)
         op.reload()
         check(op.get_by_label("Работаем с организациями").is_checked() and op.get_by_label("Оплата по счёту").is_checked(), "компания: настройки организаций сохраняются и возвращены")
-        for h in (org_href, no_inv_href):
+        # длинное название организации (120 знаков без пробелов): список и карточка на 360 px не шире экрана
+        LONG_ORG = "Ы" * 120
+        long_order = create_order(oapi, f"Длинный E2E-{RUN}", [{"serviceId": "el-socket", "qty": 1, "complex": False, "dismantle": False}], [], clientType="organization", orgName=LONG_ORG)
+        mo = browser.new_context(**ctx_args, viewport={"width": 360, "height": 800}, storage_state=owner_state, is_mobile=True, has_touch=True)
+        mp2 = mo.new_page()
+        mp2.goto(f"{BASE}/admin?org=1")
+        long_link = mp2.get_by_role("link", name=re.compile("Ы{30}")).first
+        long_link.wait_for(timeout=10000)
+        mp2.wait_for_timeout(300)
+        over_list = mp2.evaluate("document.documentElement.scrollWidth - document.documentElement.clientWidth")
+        long_href = long_link.get_attribute("href")
+        mp2.goto(f"{BASE}{long_href}")
+        mp2.get_by_role("heading", name=re.compile(r"Заявка №")).wait_for()
+        mp2.wait_for_timeout(300)
+        over_card = mp2.evaluate("document.documentElement.scrollWidth - document.documentElement.clientWidth")
+        check(over_list <= 0 and over_card <= 0, "телефон 360 px: название организации из 120 знаков не даёт горизонтальной прокрутки (список и карточка)", f"список {over_list}, карточка {over_card}")
+        mo.close()
+        for h in (org_href, no_inv_href, long_href):
             op.goto(f"{BASE}{h}")
             op.get_by_role("button", name="Удалить заявку…").click()
             op.get_by_role("dialog").get_by_role("button", name="Удалить навсегда").click()

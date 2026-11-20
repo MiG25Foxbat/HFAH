@@ -59,7 +59,7 @@ export function Panel({
         <header className="mb-4 flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
           <div className="min-w-0">
             {title && (
-              <h2 id={id ? `${id}-title` : undefined} className="text-balance text-[1.25rem] font-semibold leading-tight">
+              <h2 id={id ? `${id}-title` : undefined} className="wrap-anywhere text-balance text-[1.25rem] font-semibold leading-tight">
                 {title}
               </h2>
             )}

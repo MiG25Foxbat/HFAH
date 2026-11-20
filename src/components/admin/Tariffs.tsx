@@ -135,8 +135,8 @@ export function ServiceRow({
   return (
     <li className={cx("py-4 [contain-intrinsic-size:auto_96px] [content-visibility:auto]", !s.active && "bg-surface-2/40")}>
       <div className="min-w-0">
-        <p className="flex flex-wrap items-center gap-x-2 gap-y-1 break-words font-medium">
-          {s.title}
+        <p className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 font-medium">
+          <span className="min-w-0 wrap-anywhere">{s.title}</span>
           {!s.active && <Tag tone="warn">Скрыта от клиентов</Tag>}
           {s.office && <Tag tone="ply">Для офиса</Tag>}
         </p>
@@ -145,7 +145,7 @@ export function ServiceRow({
           <span>{timeLine(s)}</span>
           {s.pricing === "fixed" && s.dismantleAllowed && <span>Есть демонтаж старого</span>}
         </p>
-        <p className="mt-1 line-clamp-2 text-[0.875rem] text-muted">{s.memo ? `Памятка: ${s.memo}` : "Памятка не заполнена"}</p>
+        <p className="mt-1 line-clamp-2 wrap-anywhere text-[0.875rem] text-muted">{s.memo ? `Памятка: ${s.memo}` : "Памятка не заполнена"}</p>
         {saved && !open && (
           <p role="status" className="mt-1 text-[0.875rem] text-ok">
             Сохранено. Новые заявки считаются по этим данным.
@@ -251,8 +251,8 @@ function ServiceEditor({
       }}
       className="mt-4 grid gap-4 rounded-field border border-line bg-bg p-4"
     >
-      <TextField label="Название" name="title" autoComplete="off" maxLength={120} value={v.title} onChange={(e) => set("title", e.target.value)} error={error("title")} />
-      <TextArea label="Описание" name="description" rows={2} maxLength={500} value={v.description} onChange={(e) => set("description", e.target.value)} error={error("description")} hint="Одно-два предложения: что входит в работу. Видно клиенту." />
+      <TextField label="Название" name="title" autoComplete="off" value={v.title} onChange={(e) => set("title", e.target.value)} error={error("title")} />
+      <TextArea label="Описание" name="description" rows={2} value={v.description} onChange={(e) => set("description", e.target.value)} error={error("description")} hint="Одно-два предложения: что входит в работу. Видно клиенту." />
       <CategorySelect value={v.category} onChange={(c) => set("category", c)} categories={categories} error={error("category")} />
       {s.pricing === "fixed" ? (
         <div className="grid gap-4 min-[560px]:grid-cols-2">
@@ -297,7 +297,7 @@ function ServiceEditor({
         rows={4}
         value={v.memo}
         onChange={(e) => set("memo", e.target.value)}
-        maxLength={1000}
+       
         error={error("memo")}
         hint="Инструмент и материалы. Видна только вам, попадает в «Памятку для выезда» новых заявок."
       />
@@ -350,9 +350,9 @@ function NewServiceForm({ categoryId, categoryTitle, onDone, onCancel }: { categ
       }}
       className="mt-4 grid gap-4 rounded-field border border-line bg-bg p-4"
     >
-      <h3 className="text-[1.0625rem] font-semibold">Новая работа в категории «{categoryTitle}»</h3>
-      <TextField label="Название" name="title" autoComplete="off" maxLength={120} value={v.title} onChange={(e) => set("title", e.target.value)} error={error("title")} placeholder="Например, замена розетки…" />
-      <TextArea label="Описание" name="description" rows={2} maxLength={500} value={v.description} onChange={(e) => set("description", e.target.value)} error={error("description")} hint="Одно-два предложения: что входит в работу. Видно клиенту." />
+      <h3 className="wrap-anywhere text-[1.0625rem] font-semibold">Новая работа в категории «{categoryTitle}»</h3>
+      <TextField label="Название" name="title" autoComplete="off" value={v.title} onChange={(e) => set("title", e.target.value)} error={error("title")} placeholder="Например, замена розетки…" />
+      <TextArea label="Описание" name="description" rows={2} value={v.description} onChange={(e) => set("description", e.target.value)} error={error("description")} hint="Одно-два предложения: что входит в работу. Видно клиенту." />
       <SelectField label="Как считается цена" name="pricing" value={v.pricing} onChange={(e) => set("pricing", e.target.value)} error={error("pricing")} hint={v.pricing === "hourly" ? "Цену задаёт «Цена часа» в общих настройках, норма — один час." : v.pricing === "manual" ? "Клиент опишет задачу и приложит фото, цену назовёте вы." : undefined}>
         {PRICING_KINDS.map((k) => (
           <option key={k} value={k}>
@@ -377,7 +377,7 @@ function NewServiceForm({ categoryId, categoryTitle, onDone, onCancel }: { categ
         </>
       )}
       <Check label="Подходит для офиса" hint="Работа попадает в раздел «Для офисов» на сайте." checked={v.office} onChange={(e) => set("office", e.target.checked)} />
-      <TextArea label="Памятка для выезда" name="memo" rows={3} maxLength={1000} value={v.memo} onChange={(e) => set("memo", e.target.value)} error={error("memo")} hint="Инструмент и материалы. Видна только вам." />
+      <TextArea label="Памятка для выезда" name="memo" rows={3} value={v.memo} onChange={(e) => set("memo", e.target.value)} error={error("memo")} hint="Инструмент и материалы. Видна только вам." />
       <div className="flex flex-wrap items-center gap-3">
         <button type="submit" disabled={pending} className={button("primary")}>
           {pending && <Spinner />}

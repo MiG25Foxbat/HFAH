@@ -85,7 +85,7 @@ function CategoryForm({
       }}
       className="mt-4 grid gap-4 rounded-field border border-line bg-bg p-4"
     >
-      <TextField label="Название" name="title" autoComplete="off" maxLength={40} value={v.title} onChange={(e) => set("title", e.target.value)} error={error("title")} placeholder="Например, окна и двери…" />
+      <TextField label="Название" name="title" autoComplete="off" value={v.title} onChange={(e) => set("title", e.target.value)} error={error("title")} placeholder="Например, окна и двери…" />
       <Swatches name="color" value={v.color} onChange={(hex) => set("color", hex)} error={error("color")} />
       <SelectField label="Персонаж" name="character" value={v.character} onChange={(e) => set("character", e.target.value)} error={error("character")} hint="Какой 3D-персонаж встречает клиента в этой категории.">
         {CHARACTER_KEYS.map((k) => (
@@ -120,8 +120,8 @@ function CategoryItem({ c, index, count }: { c: CategoryRow; index: number; coun
       <div className="flex items-start gap-3">
         <span aria-hidden className="mt-1.5 size-3.5 shrink-0 rounded-full" style={{ background: c.color }} />
         <div className="min-w-0 flex-1">
-          <p className="flex flex-wrap items-center gap-x-2 gap-y-1 break-words font-medium">
-            {c.title}
+          <p className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 font-medium">
+            <span className="min-w-0 wrap-anywhere">{c.title}</span>
             {!c.active && <Tag tone="warn">Скрыта от клиентов</Tag>}
           </p>
           <p className="flex flex-wrap gap-x-4 text-[0.9375rem] text-muted">
@@ -148,12 +148,17 @@ function CategoryItem({ c, index, count }: { c: CategoryRow; index: number; coun
         <button type="button" aria-label={`${c.active ? "Скрыть" : "Показать"} категорию: ${c.title}`} disabled={pending} onClick={() => run(() => setCategoryActiveAction(c.id, !c.active))} className={button("secondary", "sm")}>
           {c.active ? "Скрыть" : "Показать"}
         </button>
-        {c.works === 0 && (
+        {c.works === 0 ? (
           <ConfirmDelete label="Удалить" ariaLabel={`Удалить категорию: ${c.title}`} title={`Удалить категорию «${c.title}»?`} confirmLabel="Удалить категорию" pending={pending} onConfirm={() => run(() => deleteCategoryAction(c.id))}>
             <p>Категория пуста, работ в ней нет. Она исчезнет из списка и с сайта. Заявки это не затрагивает.</p>
           </ConfirmDelete>
-        )}
+        ) : null}
       </div>
+      {c.works > 0 && (
+        <p data-testid="category-delete-hint" className="mt-2 text-[0.8125rem] text-muted">
+          Удалить можно пустую категорию: сначала перенесите или удалите её работы ({c.works}).
+        </p>
+      )}
       {(pending || result) && <FormStatus result={result} pending={pending} className="mt-2" />}
       {saved && !open && (
         <p role="status" className="mt-2 text-[0.9375rem] text-ok">

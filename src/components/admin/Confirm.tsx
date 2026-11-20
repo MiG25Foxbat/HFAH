@@ -39,7 +39,7 @@ export function ConfirmDelete({
         aria-describedby={`${id}-text`}
         className="m-auto w-[min(92vw,30rem)] overscroll-contain rounded-panel border border-line bg-surface p-6 text-ink backdrop:bg-black/50"
       >
-        <h2 id={`${id}-title`} className="text-balance text-[1.25rem] font-semibold">
+        <h2 id={`${id}-title`} className="wrap-anywhere text-balance text-[1.25rem] font-semibold">
           {title}
         </h2>
         <div id={`${id}-text`} className="mt-3 text-[0.9375rem]">

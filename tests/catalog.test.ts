@@ -91,6 +91,62 @@ describe("формы каталога (без БД)", () => {
   });
 });
 
+describe("ошибки форм каталога видны у полей (без БД)", () => {
+  /** Поля, у которых в форме есть место под сообщение: любой другой ключ владелец бы не увидел. */
+  const CATEGORY_FIELDS = new Set(["title", "color", "character"]);
+  const WORK_FIELDS = new Set(["title", "description", "pricing", "unit", "price", "minutes", "memo", "category"]);
+  const keys = (r: { ok: boolean; fields?: Record<string, string> }) => (r.ok ? [] : Object.keys(r.fields ?? {}));
+
+  it("пустое название — «Укажите название», короткое и длинное — свои тексты", () => {
+    expect(parseCategoryForm(category({ title: "" }))).toMatchObject({ ok: false, fields: { title: "Укажите название" } });
+    expect(parseCategoryForm(category({ title: "   " }))).toMatchObject({ ok: false, fields: { title: "Укажите название" } });
+    expect(parseCategoryForm(category({ title: "а" }))).toMatchObject({ ok: false, fields: { title: "Название — не короче 2 символов" } });
+    expect(parseCategoryForm(category({ title: "я".repeat(41) }))).toMatchObject({ ok: false, fields: { title: "Название — не длиннее 40 символов" } });
+    expect(parseNewServiceForm(work({ title: "" }))).toMatchObject({ ok: false, fields: { title: "Укажите название" } });
+    expect(parseNewServiceForm(work({ title: "я".repeat(121) }))).toMatchObject({ ok: false, fields: { title: "Название — не длиннее 120 символов" } });
+    expect(parseServiceForm({ title: "", price: "1", minutes: "1", active: true, memo: "" }, "fixed")).toMatchObject({ ok: false, fields: { title: "Укажите название" } });
+  });
+
+  it("новая работа: ошибки названия, цены и нормы приходят вместе", () => {
+    const r = parseNewServiceForm(work({ title: "", price: "-5", minutes: "" }));
+    expect(r).toMatchObject({
+      ok: false,
+      fields: { title: "Укажите название", price: expect.stringContaining("Цена"), minutes: expect.stringContaining("Норма") },
+    });
+    // у почасовой и «по фото» цену не проверяем, пустое название всё равно видно
+    expect(parseNewServiceForm(work({ title: "", pricing: "manual", price: "-5" }))).toMatchObject({ ok: false, fields: { title: "Укажите название" } });
+    expect(keys(parseNewServiceForm(work({ title: "", pricing: "manual", price: "-5" })))).toEqual(["title"]);
+  });
+
+  it("правка работы: название и цена проверяются вместе; у «по фото» цену не проверяем", () => {
+    const base = { price: "abc", minutes: "x", dismantleAllowed: false, active: true, memo: "я".repeat(1001) };
+    expect(parseServiceForm({ ...base, title: "" }, "fixed")).toMatchObject({
+      ok: false,
+      fields: { title: "Укажите название", price: expect.any(String), minutes: expect.any(String), memo: expect.stringContaining("1000") },
+    });
+    expect(parseServiceForm({ ...base, title: "Ок" }, "manual")).toMatchObject({ ok: false, fields: { memo: expect.any(String) } });
+    expect(keys(parseServiceForm({ ...base, title: "Ок" }, "manual"))).toEqual(["memo"]);
+  });
+
+  it("каждый ключ ошибки — поле, у которого в форме есть сообщение", () => {
+    for (const bad of [{ title: "" }, { color: "red" }, { character: "robot" }, { title: "я".repeat(50), color: "#12", character: "x" }]) {
+      for (const k of keys(parseCategoryForm(category(bad)))) expect(CATEGORY_FIELDS.has(k), `категория: ${k}`).toBe(true);
+    }
+    for (const bad of [
+      { title: "" },
+      { description: "я".repeat(501) },
+      { pricing: "free" },
+      { unit: "km" },
+      { price: "-5", minutes: "" },
+      { memo: "я".repeat(1001) },
+      { title: "", price: "x", minutes: "y", memo: "я".repeat(1001), description: "я".repeat(501) },
+    ]) {
+      for (const k of keys(parseNewServiceForm(work(bad)))) expect(WORK_FIELDS.has(k), `новая работа: ${k}`).toBe(true);
+      for (const k of keys(parseServiceForm({ price: "x", minutes: "y", active: true, memo: "", ...bad }, "fixed"))) expect(WORK_FIELDS.has(k), `правка: ${k}`).toBe(true);
+    }
+  });
+});
+
 describe("заказчик в заявке (без БД)", () => {
   const person = validOrder();
   it("частное лицо по умолчанию; реквизиты у него отбрасываются", () => {
