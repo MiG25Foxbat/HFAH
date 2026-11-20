@@ -1,0 +1,8 @@
+node_modules
+.next
+.next-*
+.env*
+!.env.docker.example
+e2e/screenshots
+assets-src
+.git
