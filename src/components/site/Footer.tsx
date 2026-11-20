@@ -3,8 +3,10 @@ import { Suspense } from "react";
 import { getShopData } from "@/lib/shop-data";
 import { contactLinks } from "./contact-links";
 
-const LINKS = [
-  { href: "/uslugi", label: "Услуги и цены" },
+const linkClass = "inline-flex min-h-11 items-center rounded-field px-1 text-[0.9375rem] hover:underline";
+// «Для офисов» вставляется между первой и второй ссылкой, если раздел включён (см. OfficesLink)
+const LINKS_BEFORE = [{ href: "/uslugi", label: "Услуги и цены" }] as const;
+const LINKS_AFTER = [
   { href: "/contacts", label: "Контакты" },
   { href: "/privacy", label: "Политика" },
   { href: "/credits", label: "Источники 3D" },
@@ -16,25 +18,42 @@ export function Footer() {
       <div className="mx-auto grid max-w-[1200px] gap-6 px-4 py-8 min-[900px]:grid-cols-[1fr_auto]">
         <div className="grid content-start gap-2">
           <p translate="no" className="font-display text-xl leading-none">запросто</p>
-          <p className="max-w-prose text-[0.9375rem] leading-snug text-muted">Мастер на час. Цена — только за работу: материалы и запчасти оплачиваются отдельно.</p>
+          <p className="max-w-prose text-[0.9375rem] leading-snug text-muted">Мастер на час для дома и офиса. Цена — только за работу: материалы и запчасти оплачиваются отдельно.</p>
           <Suspense fallback={null}>
             <FooterContacts />
           </Suspense>
         </div>
         <nav aria-label="Разделы сайта">
           <ul className="flex flex-wrap gap-x-2 min-[900px]:flex-col">
-            {LINKS.map((l) => (
-              <li key={l.href}>
-                <Link href={l.href} className="inline-flex min-h-11 items-center rounded-field px-1 text-[0.9375rem] hover:underline">
-                  {l.label}
-                </Link>
-              </li>
+            {LINKS_BEFORE.map((l) => (
+              <FooterLink key={l.href} {...l} />
+            ))}
+            <Suspense fallback={null}>
+              <OfficesLink />
+            </Suspense>
+            {LINKS_AFTER.map((l) => (
+              <FooterLink key={l.href} {...l} />
             ))}
           </ul>
         </nav>
       </div>
     </footer>
   );
+}
+
+function FooterLink({ href, label }: { href: string; label: string }) {
+  return (
+    <li>
+      <Link href={href} className={linkClass}>
+        {label}
+      </Link>
+    </li>
+  );
+}
+
+async function OfficesLink() {
+  const { settings } = await getShopData();
+  return settings.company.orgsEnabled ? <FooterLink href="/dlya-ofisov" label="Для офисов" /> : null;
 }
 
 async function FooterContacts() {

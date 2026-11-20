@@ -12,7 +12,7 @@ export function ThemeMenu() {
         type="button"
         popoverTarget={id}
         aria-label="Тема оформления"
-        className="inline-grid size-12 place-items-center rounded-full transition-colors hover:bg-surface-2"
+        className="inline-grid size-12 shrink-0 place-items-center rounded-full transition-colors hover:bg-surface-2"
       >
         <ContrastIcon />
       </button>

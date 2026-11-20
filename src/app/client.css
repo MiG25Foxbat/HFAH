@@ -25,6 +25,28 @@ body:has(dialog[open]) [data-toast-host="page"] {
   display: none;
 }
 
+/* Ряд категорий на главной: на телефоне без полосы, с мышью на широком экране — тонкая полоса, чтобы было понятно, что ряд прокручивается */
+.chips-row {
+  scrollbar-width: none;
+}
+.chips-row::-webkit-scrollbar {
+  display: none;
+}
+@media (hover: hover) and (min-width: 900px) {
+  .chips-row {
+    scrollbar-width: thin;
+    scrollbar-color: var(--line) transparent;
+  }
+  .chips-row::-webkit-scrollbar {
+    display: block;
+    height: 6px;
+  }
+  .chips-row::-webkit-scrollbar-thumb {
+    background: var(--line);
+    border-radius: 3px;
+  }
+}
+
 /* Ссылка «К содержимому» для клавиатуры */
 .skip-link {
   position: absolute;

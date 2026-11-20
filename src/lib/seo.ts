@@ -6,5 +6,8 @@ export const APP_ORIGIN = new URL(process.env.APP_ORIGIN ?? "http://localhost:30
 
 export const absoluteUrl = (path: string) => new URL(path, APP_ORIGIN).toString();
 
-/** Публичные страницы для sitemap. */
+/** Публичные страницы для sitemap (всегда есть). */
 export const PUBLIC_PATHS = ["/", "/uslugi", "/contacts", "/privacy", "/credits"] as const;
+
+/** «Для офисов»: в карту сайта попадает, только если включена работа с организациями. */
+export const OFFICES_PATH = "/dlya-ofisov";

@@ -6,7 +6,7 @@ import { getShopData } from "@/lib/shop-data";
 
 export const metadata: Metadata = {
   title: { absolute: "Запросто — мастер на час: цены на работы" },
-  description: "Сборка мебели, сантехника, электрика, мелкий ремонт. Цена за работу видна сразу, материалы и запчасти оплачиваются отдельно.",
+  description: "Сборка мебели, сантехника, электрика, мелкий ремонт и подключение бытовой техники — дома и в офисе. Цена за работу видна сразу, материалы и запчасти оплачиваются отдельно.",
   alternates: { canonical: "/" },
 };
 
@@ -36,6 +36,7 @@ async function Home({ searchParams }: Pick<PageProps<"/">, "searchParams">) {
       excluded={settings.company.excluded}
       characters={settings.characters}
       slogan={settings.company.accent}
+      orgsEnabled={settings.company.orgsEnabled}
       initialCategory={groups.find((g) => g.id === c)?.id ?? groups[0]?.id ?? ""}
       initialAdd={first(sp.add) ?? null}
       initialCart={first(sp.cart) === "1"}

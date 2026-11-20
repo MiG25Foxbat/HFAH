@@ -22,13 +22,13 @@ export async function LocalBusinessJsonLd() {
     name,
     url: absoluteUrl("/"),
     image: absoluteUrl("/og.png"),
-    description: accent ? `Мастер на час. ${accent}` : "Мастер на час: сборка мебели, сантехника, электрика, мелкий ремонт.",
+    description: accent ? `Мастер на час. ${accent}` : "Мастер на час: сборка мебели, сантехника, электрика, мелкий ремонт, бытовая техника.",
     ...(phone && { telephone: phone.text }),
     ...(email && { email: email.text }),
     ...(telegram && /^https?:/.test(telegram.href) && { sameAs: [telegram.href] }),
     ...(city && { address: { "@type": "PostalAddress", addressLocality: city, addressCountry: "RU" } }),
     ...((territory || city) && { areaServed: territory || city }),
-    knowsAbout: ["Сборка мебели", "Сантехника", "Электрика", "Мелкий ремонт"],
+    knowsAbout: ["Сборка мебели", "Сантехника", "Электрика", "Мелкий ремонт", "Подключение бытовой техники", "Мелкий ремонт в офисе"],
   };
 
   // «<» экранируем, чтобы данные из настроек не могли закрыть тег <script>

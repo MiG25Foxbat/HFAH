@@ -22,7 +22,7 @@ const unbounded = Unbounded({
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.APP_ORIGIN ?? "http://localhost:3000"),
   title: { default: "Запросто — мастер на час", template: "%s — Запросто" },
-  description: "Мастер на час: сборка мебели, сантехника, электрика, мелкий ремонт. Цены за работу видны сразу.",
+  description: "Мастер на час: сборка мебели, сантехника, электрика, мелкий ремонт, бытовая техника. Для дома и офиса. Цены за работу видны сразу.",
   openGraph: {
     locale: "ru_RU",
     type: "website",

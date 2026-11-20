@@ -1,13 +1,11 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Stage } from "@/components/stage";
-import { Button, ButtonLink, TextField } from "@/components/ui/controls";
+import { TextField } from "@/components/ui/controls";
 import { SearchIcon } from "@/components/ui/icons";
-import { cartSnapshot } from "@/lib/cart";
-import { useCart } from "@/lib/cart-store";
-import { UNIT_LABEL, type CategoryId, type Service } from "@/lib/catalog";
-import { worksCount } from "@/lib/format";
-import { formatMinutes, formatRub, type PricingSettings } from "@/lib/pricing";
+import type { CategoryId, Service } from "@/lib/catalog";
+import type { PricingSettings } from "@/lib/pricing";
 import { excludedInQuery, searchServices } from "@/lib/shop";
 import type { ShopGroup } from "@/lib/shop-data";
 import type { Characters, ExcludedItem } from "@/lib/settings";
@@ -15,6 +13,7 @@ import { openCart } from "@/lib/ui-store";
 import { AddSheet } from "./AddSheet";
 import { ExcludedList, ExcludedNote } from "./ExcludedNote";
 import { MATERIALS_NOTE } from "./PriceSummary";
+import { CartBar, ServiceRow } from "./ServiceRow";
 
 interface Props {
   groups: ShopGroup[];
@@ -22,6 +21,8 @@ interface Props {
   excluded: ExcludedItem[];
   characters: Characters;
   slogan: string;
+  /** Раздел «Для офисов» включён владельцем: на него ведёт тихая ссылка под строкой поиска. */
+  orgsEnabled: boolean;
   initialCategory: CategoryId;
   /** Работа, чьё окно настройки открыть сразу (ссылка с /uslugi: ?add=<id>). */
   initialAdd: string | null;
@@ -29,7 +30,7 @@ interface Props {
   initialCart: boolean;
 }
 
-export function Storefront({ groups, pricing, excluded, characters, slogan, initialCategory, initialAdd, initialCart }: Props) {
+export function Storefront({ groups, pricing, excluded, characters, slogan, orgsEnabled, initialCategory, initialAdd, initialCart }: Props) {
   const all = useMemo(() => groups.flatMap((g) => g.services), [groups]);
   const groupById = useMemo(() => new Map(groups.map((g) => [g.id, g])), [groups]);
   const stageCategories = useMemo(() => groups.map(({ id, color, character }) => ({ id, color, character })), [groups]);
@@ -72,6 +73,17 @@ export function Storefront({ groups, pricing, excluded, characters, slogan, init
   const excludedHit = useMemo(() => excludedInQuery(excluded, query), [excluded, query]);
   const searching = query.trim().length > 0;
 
+  // выбранный чип всегда виден: при заходе по ссылке с ?c= и при смене категории ряд прокручивается к нему (без прокрутки страницы)
+  const chipsRef = useRef<HTMLDivElement>(null);
+  const currentId = current?.id;
+  useEffect(() => {
+    const row = chipsRef.current;
+    const chip = row?.querySelector<HTMLElement>("[aria-pressed=true]");
+    if (!row || !chip) return;
+    const left = chip.offsetLeft - (row.clientWidth - chip.offsetWidth) / 2;
+    row.scrollTo({ left: Math.max(0, left), behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+  }, [currentId, searching]);
+
   if (!current) {
     return (
       <div className="mx-auto w-full max-w-[1200px] px-4 pb-6 pt-5">
@@ -96,7 +108,7 @@ export function Storefront({ groups, pricing, excluded, characters, slogan, init
         </div>
 
         <div className="sticky top-(--header-h) z-20 -mx-4 mt-3 bg-bg/90 px-4 py-2 backdrop-blur">
-          <div role="group" aria-label="Категории работ" className="no-scrollbar -mx-4 flex snap-x gap-2 overflow-x-auto px-4">
+          <div ref={chipsRef} role="group" aria-label="Категории работ" className="chips-row relative -mx-4 flex snap-x gap-2 overflow-x-auto px-4 min-[900px]:pb-1.5">
             {groups.map((c) => {
               const active = c.id === current.id && !searching;
               return (
@@ -104,10 +116,7 @@ export function Storefront({ groups, pricing, excluded, characters, slogan, init
                   key={c.id}
                   type="button"
                   aria-pressed={active}
-                  onClick={(e) => {
-                    selectCategory(c.id);
-                    e.currentTarget.scrollIntoView({ inline: "center", block: "nearest" });
-                  }}
+                  onClick={() => selectCategory(c.id)}
                   className={`inline-flex min-h-12 shrink-0 snap-start items-center gap-2 rounded-full border px-4 font-medium transition-[background-color,border-color,transform] duration-150 active:scale-[0.97] motion-reduce:active:scale-100 ${
                     active ? "border-accent bg-accent text-accent-ink" : "border-line bg-surface hover:bg-surface-2"
                   }`}
@@ -135,7 +144,15 @@ export function Storefront({ groups, pricing, excluded, characters, slogan, init
             />
             <SearchIcon className="pointer-events-none absolute left-3.5 top-3.5 size-5 text-muted" />
           </div>
-          <p className="text-[0.9375rem] leading-snug text-muted">{MATERIALS_NOTE}</p>
+          <p className="text-[0.9375rem] leading-snug text-muted">
+            {MATERIALS_NOTE}
+            {orgsEnabled && (
+              <>
+                {" "}
+                Заказываете для офиса? <Link href="/dlya-ofisov" className="underline decoration-muted/60 underline-offset-4 hover:decoration-current">Работы для офисов</Link>.
+              </>
+            )}
+          </p>
           {searching && <ExcludedNote items={excludedHit} />}
         </div>
 
@@ -178,51 +195,6 @@ export function Storefront({ groups, pricing, excluded, characters, slogan, init
       </div>
 
       <AddSheet service={adding} pricing={pricing} excluded={excluded} onClose={() => setAdding(null)} />
-    </div>
-  );
-}
-
-function ServiceRow({ s, pricing, category, onAdd }: { s: Service; pricing: PricingSettings; category?: { title: string; color: string }; onAdd: () => void }) {
-  const { lines } = useCart();
-  const inCart = lines.filter((l) => l.serviceId === s.id).reduce((sum, l) => sum + l.qty, 0);
-  const price = s.pricing === "manual" ? "По фото" : `${formatRub(s.pricing === "hourly" ? pricing.hourRate : (s.price as number))} за ${UNIT_LABEL[s.unit]}`;
-  return (
-    <li className="grid grid-cols-[1fr_auto] items-center gap-x-4 py-4">
-      <div className="min-w-0">
-        {category && (
-          <span className="mb-0.5 flex items-center gap-1.5 text-[0.8125rem] text-muted">
-            <span aria-hidden="true" className="size-2.5 rounded-full" style={{ background: category.color }} />
-            {category.title}
-          </span>
-        )}
-        <h3 className="font-medium leading-snug">{s.title}</h3>
-        {s.description && <p className="mt-0.5 line-clamp-2 text-[0.875rem] leading-snug text-muted">{s.description}</p>}
-        <p className="mt-1 flex flex-wrap items-baseline gap-x-4 gap-y-0.5">
-          <span className="font-medium tabular-nums">{price}</span>
-          {s.minutes > 0 && s.pricing === "fixed" && <span className="text-[0.8125rem] text-muted tabular-nums">{formatMinutes(s.minutes)}</span>}
-        </p>
-        {inCart > 0 && <p className="mt-1 text-[0.8125rem] text-ok">В корзине: {s.pricing === "manual" ? worksCount(inCart) : `${String(inCart).replace(".", ",")} ${UNIT_LABEL[s.unit]}`}</p>}
-      </div>
-      <Button variant="secondary" onClick={onAdd} aria-label={`Добавить: ${s.title}`} className="min-w-28">
-        Добавить
-      </Button>
-    </li>
-  );
-}
-
-/** Нижняя панель: сколько работ и на какую сумму; нажатие открывает корзину, «Оформить» ведёт к заявке. */
-function CartBar({ services, pricing }: { services: Service[]; pricing: PricingSettings }) {
-  const { lines } = useCart();
-  const snap = useMemo(() => cartSnapshot(services, pricing, lines), [services, pricing, lines]);
-  if (!lines.length) return null;
-  const sum = !snap ? "" : snap.hasManual ? (snap.knownTotal != null ? `${formatRub(snap.knownTotal)} + по фото` : "по фото") : formatRub(snap.knownTotal ?? 0);
-  return (
-    <div className="sticky bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-20 mt-6 flex items-center gap-2 rounded-panel border border-line bg-surface p-2 pl-4">
-      <button type="button" onClick={openCart} className="min-h-12 min-w-0 flex-1 rounded-field text-left" aria-label={`Открыть корзину: ${worksCount(lines.length)}${sum ? `, ${sum}` : ""}`}>
-        <span className="block font-medium">{worksCount(lines.length)}</span>
-        <span className="block truncate text-[0.9375rem] text-muted tabular-nums">{sum}</span>
-      </button>
-      <ButtonLink href="/checkout">Оформить</ButtonLink>
     </div>
   );
 }

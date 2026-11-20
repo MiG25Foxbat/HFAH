@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Suspense, type ReactNode } from "react";
-import { h1Class, leadClass, linkClass } from "@/components/info/parts";
+import { Suspense } from "react";
+import { CategoryNav, Factor, h1Class, leadClass, linkClass } from "@/components/info/parts";
 import { ButtonLink, buttonClass } from "@/components/ui/controls";
 import { UNIT_LABEL, type Service } from "@/lib/catalog";
 import { formatMinutes, formatRub, type PricingSettings } from "@/lib/pricing";
@@ -10,7 +10,7 @@ import { getShopData, type ShopGroup } from "@/lib/shop-data";
 export const metadata: Metadata = {
   title: "Услуги и цены",
   description:
-    "Все работы мастера на час с ценой за единицу: сборка мебели, сантехника, электрика, мелкий ремонт. Цена только за работу, материалы и запчасти оплачиваются отдельно.",
+    "Все работы мастера на час с ценой за единицу: сборка мебели, сантехника, электрика, мелкий ремонт, бытовая техника, работы для офисов. Цена только за работу, материалы и запчасти оплачиваются отдельно.",
   alternates: { canonical: "/uslugi" },
 };
 
@@ -50,22 +50,7 @@ async function Catalog() {
   return (
     <div className="mt-6 grid grid-cols-1 gap-6 min-[900px]:grid-cols-[minmax(0,1fr)_15rem] min-[900px]:items-start min-[900px]:gap-12">
       <aside className="min-[900px]:sticky min-[900px]:top-[calc(var(--header-h)+1.5rem)] min-[900px]:col-start-2 min-[900px]:row-start-1">
-        <nav aria-label="Категории работ">
-          <ul className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4 min-[900px]:mx-0 min-[900px]:flex-col min-[900px]:gap-1 min-[900px]:overflow-visible min-[900px]:px-0">
-            {filled.map((g) => (
-              <li key={g.id} className="shrink-0">
-                <a
-                  href={`#c-${g.id}`}
-                  className="inline-flex min-h-12 items-center gap-2 rounded-full border border-line bg-surface px-4 font-medium transition-colors hover:bg-surface-2 min-[900px]:w-full min-[900px]:rounded-field"
-                >
-                  <span aria-hidden="true" className="size-3 shrink-0 rounded-full" style={{ background: g.color }} />
-                  {g.title}
-                  <span className="ml-auto pl-2 text-[0.875rem] font-normal text-muted tabular-nums max-[899px]:hidden">{g.services.length}</span>
-                </a>
-              </li>
-            ))}
-          </ul>
-        </nav>
+        <CategoryNav groups={filled} />
       </aside>
 
       <div className="grid min-w-0 max-w-[860px] gap-12 min-[900px]:col-start-1 min-[900px]:row-start-1">
@@ -138,18 +123,6 @@ async function Catalog() {
           </div>
         </div>
       </div>
-    </div>
-  );
-}
-
-function Factor({ name, value, children }: { name: string; value?: string; children: ReactNode }) {
-  return (
-    <div className="grid gap-x-6 gap-y-1 py-4 min-[640px]:grid-cols-[13.5rem_1fr]">
-      <dt className="font-medium">
-        {name}
-        {value && <span className="block tabular-nums text-accent">{value}</span>}
-      </dt>
-      <dd className="leading-snug text-muted">{children}</dd>
     </div>
   );
 }

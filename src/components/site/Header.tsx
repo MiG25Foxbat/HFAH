@@ -18,7 +18,11 @@ export function Header() {
           <Link href="/uslugi" className={`${navLink} max-[899px]:hidden`}>
             Услуги и цены
           </Link>
-          <Link href="/contacts" className={navLink}>
+          <Suspense fallback={null}>
+            <HeaderOffices />
+          </Suspense>
+          {/* до 360 px шапке не хватает места: контакты остаются в подвале, а кнопка темы не сжимается */}
+          <Link href="/contacts" className={`${navLink} max-[359px]:hidden`}>
             Контакты
           </Link>
         </nav>
@@ -29,6 +33,17 @@ export function Header() {
         <CartButton />
       </div>
     </header>
+  );
+}
+
+/** «Для офисов» в шапке — только на широком экране и только если владелец включил работу с организациями. */
+async function HeaderOffices() {
+  const { settings } = await getShopData();
+  if (!settings.company.orgsEnabled) return null;
+  return (
+    <Link href="/dlya-ofisov" className={`${navLink} max-[899px]:hidden`}>
+      Для офисов
+    </Link>
   );
 }
 
