@@ -29,3 +29,16 @@ server {
 В `.env` укажите `DOMAIN=77-91-73-207.sslip.io` и `APP_ORIGIN=https://77-91-73-207.sslip.io` (IP через дефисы).
 Контейнер Caddy сам получит сертификат HTTPS — nginx и certbot не нужны. Порты 80 и 443 должны быть открыты.
 Для своего домена позже: поменяйте обе строки на домен и выполните `docker compose up -d --build`.
+
+## Вариант с Caddy и sslip.io (без своего домена)
+Адрес вида `zaprosto.<IP-сервера>.sslip.io`, HTTPS Caddy получает сам.
+1. В `.env`: `APP_ORIGIN=https://zaprosto.<IP>.sslip.io`, `APP_PORT` — свободный порт (например 3010).
+2. В Caddyfile (обычно `/etc/caddy/Caddyfile`) добавить блок и выполнить `systemctl reload caddy`:
+```
+zaprosto.<IP>.sslip.io {
+	reverse_proxy 127.0.0.1:3010 {
+		header_up X-Real-IP {remote_host}
+	}
+}
+```
+`X-Real-IP` обязателен: по нему работают ограничения частоты запросов.

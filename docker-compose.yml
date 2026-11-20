@@ -25,7 +25,7 @@ services:
       OWNER_PASSWORD: ${OWNER_PASSWORD}
       CLIENT_IP_HEADER: x-real-ip
     ports:
-      - "127.0.0.1:3000:3000"
+      - "127.0.0.1:${APP_PORT:-3000}:3000"
   caddy:
     image: caddy:2
     restart: unless-stopped
